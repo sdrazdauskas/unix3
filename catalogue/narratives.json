@@ -1,0 +1,14 @@
+{
+  "#unix": {
+    "hello": ["Hello! This is the Unix channel. Ask me anything about Unix!"],
+    "ls": ["'ls' lists directory contents. Try 'ls -l' for more details."],
+    "default": ["I'm here to help with Unix questions."]
+  },
+  "#random": {
+    "hello": ["Hey there! Welcome to #random."],
+    "default": ["Let's talk about anything!"]
+  },
+  "#admin": {
+    "default": ["Admin channel. Use commands to control the bot."]
+  }
+}

@@ -1,0 +1,11 @@
+# Ignore build output and OS-specific files
+irc_bot
+*.o
+*.exe
+*.out
+*.log
+*.swp
+.DS_Store
+Thumbs.db
+.vscode/
+Unix3.code-workspace
