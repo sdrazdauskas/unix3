@@ -21,7 +21,21 @@
 #include "admin.h"
 #include "shared_mem.h"
 
+volatile sig_atomic_t terminate_flag = 0;
+
+void handle_termination(int sig) {
+    terminate_flag = 1;
+}
+
 int main(int argc, char *argv[]) {
+    // Register signal handlers for graceful shutdown
+    signal(SIGINT, handle_termination);   // Ctrl+C
+    signal(SIGTERM, handle_termination);  // kill
+    signal(SIGQUIT, handle_termination);  // Ctrl+'\'
+    signal(SIGHUP, handle_termination);   // terminal closed
+#ifdef SIGTSTP
+    signal(SIGTSTP, handle_termination);  // Ctrl+Z (if available)
+#endif
     // Load configuration
     BotConfig config;
     if (load_config("config/bot.conf", &config) != 0) {
@@ -85,16 +99,28 @@ int main(int argc, char *argv[]) {
     snprintf(buffer, sizeof(buffer), "USER %s 0 * :%s\r\n", config.nickname, config.nickname);
     send(sockfd, buffer, strlen(buffer), 0);
     // Now fork for each channel, passing sockfd
+    pid_t child_pids[MAX_CHANNELS] = {0};
     for (int i = 0; i < config.channel_count; ++i) {
         pid_t pid = fork();
         if (pid == 0) {
             // Child: join channel and handle IRC for this channel
             irc_channel_loop(&config, i, sockfd);
             exit(0);
+        } else if (pid > 0) {
+            child_pids[i] = pid;
         }
     }
-    // Main process: wait for children
-    while (wait(NULL) > 0);
+    // Main process: wait for children or termination signal
+    while (!terminate_flag && wait(NULL) > 0);
+    // On termination, signal all children to stop
+    for (int i = 0; i < config.channel_count; ++i) {
+        if (child_pids[i] > 0) {
+            kill(child_pids[i], SIGTERM);
+        }
+    }
+    // Graceful logoff on termination
+    snprintf(buffer, sizeof(buffer), "QUIT :Bot logging off\r\n");
+    send(sockfd, buffer, strlen(buffer), 0);
     cleanup_shared_resources();
     close(sockfd);
     return 0;

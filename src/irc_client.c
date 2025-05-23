@@ -8,6 +8,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <ctype.h>
+#include <signal.h>
+#include <strings.h> // for strcasecmp
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -18,7 +20,7 @@
 // Helper: simple narrative lookup for demonstration
 const char* get_narrative_response(const char* channel, const char* msg) {
     // #unix
-    if (strcmp(channel, "#unix") == 0) {
+    if (strcasecmp(channel, "#unix") == 0) {
         if (strstr(msg, "ls"))
             return "'ls' lists directory contents. Try 'ls -l' for more details.";
         if (strstr(msg, "hello"))
@@ -26,25 +28,37 @@ const char* get_narrative_response(const char* channel, const char* msg) {
         return "I'm here to help with Unix questions.";
     }
     // #random
-    if (strcmp(channel, "#random") == 0) {
+    if (strcasecmp(channel, "#random") == 0) {
         if (strstr(msg, "hello"))
             return "Hey there! Welcome to #random.";
         return "Let's talk about anything!";
     }
     // #admin
-    if (strcmp(channel, "#admin") == 0) {
+    if (strcasecmp(channel, "#admin") == 0) {
         return "Admin channel. Use commands to control the bot.";
     }
     return NULL;
 }
 
+// Declare these as extern, definition should be in main.c
+extern volatile sig_atomic_t terminate_flag;
+extern void handle_termination(int sig);
+
 void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd) {
+    // Register signal handlers for graceful shutdown
+    signal(SIGINT, handle_termination);   // Ctrl+C
+    signal(SIGTERM, handle_termination);  // kill
+    signal(SIGQUIT, handle_termination);  // Ctrl+'\'
+    signal(SIGHUP, handle_termination);   // terminal closed
+#ifdef SIGTSTP
+    signal(SIGTSTP, handle_termination);  // Ctrl+Z (if available)
+#endif
     char buffer[512];
     // Join the assigned channel
     snprintf(buffer, sizeof(buffer), "JOIN %s\r\n", config->channels[channel_index]);
     send(sockfd, buffer, strlen(buffer), 0);
     // Main loop: print server messages
-    while (1) {
+    while (!terminate_flag) {
         int n = recv(sockfd, buffer, sizeof(buffer)-1, 0);
         if (n <= 0) break;
         buffer[n] = 0;
@@ -65,7 +79,8 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd) {
             if (msg) {
                 msg++; // skip ':'
                 // Use catalogue for response
-                if (strcmp(channel, config->channels[channel_index]) == 0) {
+                // Use case-insensitive comparison for channel
+                if (channel && strcasecmp(channel, config->channels[channel_index]) == 0) {
                     const char* reply_text = get_narrative_response(channel, msg);
                     if (reply_text) {
                         char reply[512];
@@ -76,5 +91,8 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd) {
             }
         }
     }
+    // Graceful logoff on termination
+    snprintf(buffer, sizeof(buffer), "QUIT :Bot logging off\r\n");
+    send(sockfd, buffer, strlen(buffer), 0);
     close(sockfd);
 }
