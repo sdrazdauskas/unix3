@@ -4,5 +4,7 @@
 
 int init_shared_resources();
 void cleanup_shared_resources();
+int sem_lock();
+int sem_unlock();
 
 #endif

@@ -1,5 +1,6 @@
 // irc_client.c - Minimal IRC client implementation
 #include "irc_client.h"
+#include "shared_mem.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,94 +67,70 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
     char buffer[512];
     // Send JOIN for assigned channel (child process only)
     printf("[DEBUG] Child process joining channel: '%s'\n", config->channels[channel_index]);
+    fflush(stdout);
     snprintf(buffer, sizeof(buffer), "JOIN %s\r\n", config->channels[channel_index]);
     send(sockfd, buffer, strlen(buffer), 0);
+    usleep(200000); // 200ms delay to avoid flooding
     // Main loop: print server messages and listen for pipe commands
     fd_set fds;
-    int maxfd = (sockfd > pipe_fd) ? sockfd : pipe_fd;
+    int maxfd = pipe_fd;
     while (!terminate_flag) {
         FD_ZERO(&fds);
-        FD_SET(sockfd, &fds);
         FD_SET(pipe_fd, &fds);
         int ready = select(maxfd+1, &fds, NULL, NULL, NULL);
         if (ready < 0) break;
-        if (FD_ISSET(sockfd, &fds)) {
-            int n = recv(sockfd, buffer, sizeof(buffer)-1, 0);
-            if (n <= 0) break;
-            buffer[n] = 0;
-            printf("[%s] %s", config->channels[channel_index], buffer);
-            // Respond to PING
-            if (strncmp(buffer, "PING", 4) == 0) {
-                char pong[512];
-                snprintf(pong, sizeof(pong), "PONG%s\r\n", buffer+4);
-                send(sockfd, pong, strlen(pong), 0);
-                continue;
-            }
-            // Robust PRIVMSG parsing
-            char *line = buffer;
-            while (line && *line) {
-                // Find next line
-                char *next = strstr(line, "\r\n");
-                if (next) { *next = 0; next += 2; }
-                // Check for PRIVMSG
-                char *privmsg = strstr(line, "PRIVMSG ");
-                if (privmsg) {
-                    // Extract sender nick (between ':' and '!')
-                    char sender[64] = "";
-                    if (line[0] == ':') {
-                        char *ex = strchr(line, '!');
-                        if (ex && ex - line - 1 < (int)sizeof(sender)) {
-                            strncpy(sender, line+1, ex-line-1);
-                            sender[ex-line-1] = 0;
-                        }
-                    }
-                    // Forbid bot-to-bot replies: skip if sender matches /^b[a-zA-Z0-9]{8}$/
-                    if (strlen(sender) == 9 && sender[0] == 'b') {
-                        int botnick = 1;
-                        for (int i = 1; i < 9; ++i) {
-                            if (!isalnum(sender[i])) { botnick = 0; break; }
-                        }
-                        if (botnick) { line = next; continue; }
-                    }
-                    // Extract channel/target
-                    char *target = privmsg + 8;
-                    char *space = strchr(target, ' ');
-                    if (!space) { line = next; continue; }
-                    *space = 0;
-                    // Extract message (after first ' :')
-                    char *msg = strstr(space+1, ":");
-                    if (!msg) { line = next; continue; }
-                    msg++;
-                    // Only respond if target matches our channel (case-insensitive)
-                    if (strcasecmp(target, config->channels[channel_index]) == 0) {
-                        // DEBUG: print target and config channel in hex only if they match
-                        printf("[DEBUG] MATCH: target='%s' (hex:", target);
-                        for (size_t i = 0; i < strlen(target); ++i) printf("%02X ", (unsigned char)target[i]);
-                        printf(") config='%s' (hex:", config->channels[channel_index]);
-                        for (size_t i = 0; i < strlen(config->channels[channel_index]); ++i) printf("%02X ", (unsigned char)config->channels[channel_index][i]);
-                        printf(")\n");
-                        const char* reply_text = get_narrative_response(target, msg);
-                        if (reply_text) {
-                            char reply[512];
-                            snprintf(reply, sizeof(reply), "PRIVMSG %s :%s\r\n", target, reply_text);
-                            send(sockfd, reply, strlen(reply), 0);
-                        }
-                    }
-                }
-                line = next;
-            }
-        }
         if (FD_ISSET(pipe_fd, &fds)) {
-            // Read command from main process and send to IRC
+            // Read IRC message from main process and respond if needed
             int n = read(pipe_fd, buffer, sizeof(buffer)-1);
             if (n > 0) {
                 buffer[n] = 0;
-                send(sockfd, buffer, strlen(buffer), 0);
+                // Debug: print what the child receives from the pipe
+                printf("[CHILD %d] Received from pipe: %s\n", channel_index, buffer);
+                fflush(stdout);
+                // Process each IRC line in buffer (split on \r\n)
+                char *line = buffer;
+                while (line && *line) {
+                    char *next = strstr(line, "\r\n");
+                    if (next) { *next = 0; next += 2; }
+                    char *privmsg = strstr(line, "PRIVMSG ");
+                    if (privmsg) {
+                        // Extract channel/target
+                        char *target = privmsg + 8;
+                        char *space = strchr(target, ' ');
+                        if (!space) { line = next; continue; }
+                        *space = 0;
+                        // Extract message (after first ' :')
+                        char *msg = strstr(space+1, ":");
+                        if (!msg) { line = next; continue; }
+                        msg++;
+                        // Normalize both target and config channel to lowercase for comparison
+                        char target_lc[256], config_chan_lc[256];
+                        snprintf(target_lc, sizeof(target_lc), "%s", target);
+                        snprintf(config_chan_lc, sizeof(config_chan_lc), "%s", config->channels[channel_index]);
+                        for (char *p = target_lc; *p; ++p) *p = tolower(*p);
+                        for (char *p = config_chan_lc; *p; ++p) *p = tolower(*p);
+                        if (strcmp(target_lc, config_chan_lc) == 0) {
+                            // Always pass canonical lowercase channel to narrative
+                            const char* reply_text = get_narrative_response(config_chan_lc, msg);
+                            if (reply_text) {
+                                char reply[512];
+                                snprintf(reply, sizeof(reply), "PRIVMSG %s :%s\r\n", target, reply_text);
+                                sem_lock();
+                                send(sockfd, reply, strlen(reply), 0);
+                                sem_unlock();
+                                usleep(200000);
+                            }
+                        }
+                    }
+                    line = next;
+                }
             }
         }
     }
     // Graceful logoff on termination
     snprintf(buffer, sizeof(buffer), "QUIT :Bot logging off\r\n");
+    sem_lock();
     send(sockfd, buffer, strlen(buffer), 0);
+    sem_unlock();
     // Do not close sockfd here; main process is responsible for closing the IRC socket
 }

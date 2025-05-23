@@ -20,6 +20,7 @@
 #include "narrative.h"
 #include "admin.h"
 #include "shared_mem.h"
+#include <ctype.h>
 
 volatile sig_atomic_t terminate_flag = 0;
 
@@ -125,8 +126,63 @@ int main(int argc, char *argv[]) {
         snprintf(msg, sizeof(msg), "PRIVMSG %s :Hello from main process!\n", config.channels[i]);
         write(pipes[i][1], msg, strlen(msg));
     }
-    // Main process: wait for children or termination signal
-    while (!terminate_flag && wait(NULL) > 0);
+
+    // Main process: dispatcher loop
+    while (!terminate_flag) {
+        // Read from IRC socket
+        int n = recv(sockfd, buffer, sizeof(buffer)-1, 0);
+        if (n <= 0) break;
+        buffer[n] = 0;
+        // Print all server messages for debug
+        printf("[IRC] %s", buffer);
+        fflush(stdout);
+        // Respond to PING
+        if (strncmp(buffer, "PING", 4) == 0) {
+            char pong[512];
+            snprintf(pong, sizeof(pong), "PONG%s\r\n", buffer+4);
+            sem_lock();
+            send(sockfd, pong, strlen(pong), 0);
+            sem_unlock();
+            usleep(200000);
+            continue;
+        }
+        // Parse PRIVMSG and forward to correct child
+        char *line = buffer;
+        while (line && *line) {
+            char *next = strstr(line, "\r\n");
+            if (next) { *next = 0; next += 2; }
+            char *privmsg = strstr(line, "PRIVMSG ");
+            if (privmsg) {
+                char *target = privmsg + 8;
+                char *space = strchr(target, ' ');
+                if (!space) { line = next; continue; }
+                // Use a temporary buffer for the channel name
+                char chan_name[256];
+                size_t chan_len = space - target;
+                if (chan_len >= sizeof(chan_name)) chan_len = sizeof(chan_name) - 1;
+                strncpy(chan_name, target, chan_len);
+                chan_name[chan_len] = '\0';
+                // Only forward if there is a colon (:) after the channel (i.e., a message)
+                char *msg_colon = strchr(space+1, ':');
+                if (!msg_colon) { line = next; continue; }
+                // Normalize channel name to lowercase for comparison
+                char target_lc[256], chan_lc[256];
+                snprintf(target_lc, sizeof(target_lc), "%s", chan_name);
+                for (char *p = target_lc; *p; ++p) *p = tolower(*p);
+                for (int i = 0; i < config.channel_count; ++i) {
+                    snprintf(chan_lc, sizeof(chan_lc), "%s", config.channels[i]);
+                    for (char *p = chan_lc; *p; ++p) *p = tolower(*p);
+                    if (strcmp(target_lc, chan_lc) == 0) {
+                        // Forward the full IRC line to the child, ensure \r\n ending
+                        write(pipes[i][1], line, strlen(line));
+                        write(pipes[i][1], "\r\n", 2);
+                        break;
+                    }
+                }
+            }
+            line = next;
+        }
+    }
     // On termination, signal all children to stop
     for (int i = 0; i < config.channel_count; ++i) {
         if (child_pids[i] > 0) {
