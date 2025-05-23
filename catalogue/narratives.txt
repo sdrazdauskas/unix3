@@ -1,0 +1,6 @@
+#unix|ls|'ls' lists directory contents. Try 'ls -l' for more details.
+#unix|hello|Hello! This is the Unix channel. Ask me anything about Unix!
+#unix|*|I'm here to help with Unix questions.
+#random|hello|Hey there! Welcome to #random.
+#random|*|Let's talk about anything!
+#admin|*|Admin channel. Use commands to control the bot.

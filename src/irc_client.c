@@ -1,6 +1,7 @@
 // irc_client.c - Minimal IRC client implementation
 #include "irc_client.h"
 #include "shared_mem.h"
+#include "narrative.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,39 +18,6 @@
 #else
 #include <arpa/inet.h>
 #endif
-
-// Helper: case-insensitive substring search
-static int strcasestr_simple(const char *haystack, const char *needle) {
-    if (!haystack || !needle) return 0;
-    size_t nlen = strlen(needle);
-    for (; *haystack; ++haystack) {
-        if (strncasecmp(haystack, needle, nlen) == 0) return 1;
-    }
-    return 0;
-}
-
-// Helper: simple narrative lookup for demonstration
-const char* get_narrative_response(const char* channel, const char* msg) {
-    // #unix
-    if (strcasecmp(channel, "#unix") == 0) {
-        if (strcasestr_simple(msg, "ls"))
-            return "'ls' lists directory contents. Try 'ls -l' for more details.";
-        if (strcasestr_simple(msg, "hello"))
-            return "Hello! This is the Unix channel. Ask me anything about Unix!";
-        return "I'm here to help with Unix questions.";
-    }
-    // #random
-    if (strcasecmp(channel, "#random") == 0) {
-        if (strcasestr_simple(msg, "hello"))
-            return "Hey there! Welcome to #random.";
-        return "Let's talk about anything!";
-    }
-    // #admin
-    if (strcasecmp(channel, "#admin") == 0) {
-        return "Admin channel. Use commands to control the bot.";
-    }
-    return NULL;
-}
 
 // Declare these as extern, definition should be in main.c
 extern volatile sig_atomic_t terminate_flag;
@@ -115,6 +83,8 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                             if (reply_text) {
                                 char reply[512];
                                 snprintf(reply, sizeof(reply), "PRIVMSG %s :%s\r\n", target, reply_text);
+                                printf("[CHILD %d] Sending to IRC: %s\n", channel_index, reply);
+                                fflush(stdout);
                                 sem_lock();
                                 send(sockfd, reply, strlen(reply), 0);
                                 sem_unlock();
