@@ -13,9 +13,16 @@ int load_config(const char *path, BotConfig *config) {
     while (fgets(line, sizeof(line), f)) {
         if (strncmp(line, "channels =", 10) == 0) {
             char *p = strchr(line, '=') + 1;
+            // Remove whitespace and split by comma
             char *tok = strtok(p, ",#\n");
             while (tok && config->channel_count < MAX_CHANNELS) {
-                snprintf(config->channels[config->channel_count++], MAX_STR, "#%s", tok);
+                // Trim leading/trailing whitespace from tok
+                while (*tok == ' ' || *tok == '\t') ++tok;
+                char *end = tok + strlen(tok) - 1;
+                while (end > tok && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r')) { *end = 0; --end; }
+                if (*tok) {
+                    snprintf(config->channels[config->channel_count++], MAX_STR, "#%s", tok);
+                }
                 tok = strtok(NULL, ",#\n");
             }
         } else if (strncmp(line, "admins =", 8) == 0) {

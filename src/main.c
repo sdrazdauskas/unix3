@@ -98,17 +98,32 @@ int main(int argc, char *argv[]) {
     send(sockfd, buffer, strlen(buffer), 0);
     snprintf(buffer, sizeof(buffer), "USER %s 0 * :%s\r\n", config.nickname, config.nickname);
     send(sockfd, buffer, strlen(buffer), 0);
-    // Now fork for each channel, passing sockfd
+    // Create pipes for communication with each child
+    int pipes[MAX_CHANNELS][2];
     pid_t child_pids[MAX_CHANNELS] = {0};
     for (int i = 0; i < config.channel_count; ++i) {
+        if (pipe(pipes[i]) == -1) {
+            perror("pipe");
+            return 1;
+        }
         pid_t pid = fork();
         if (pid == 0) {
-            // Child: join channel and handle IRC for this channel
-            irc_channel_loop(&config, i, sockfd);
+            // Child: close write end, pass read end to irc_channel_loop
+            close(pipes[i][1]);
+            irc_channel_loop(&config, i, sockfd, pipes[i][0]);
             exit(0);
         } else if (pid > 0) {
+            // Parent: close read end
+            close(pipes[i][0]);
             child_pids[i] = pid;
         }
+    }
+    // Main process: example of sending a message to each child
+    // (In real use, this would be based on user/admin input or logic)
+    for (int i = 0; i < config.channel_count; ++i) {
+        char msg[256];
+        snprintf(msg, sizeof(msg), "PRIVMSG %s :Hello from main process!\n", config.channels[i]);
+        write(pipes[i][1], msg, strlen(msg));
     }
     // Main process: wait for children or termination signal
     while (!terminate_flag && wait(NULL) > 0);
@@ -118,10 +133,6 @@ int main(int argc, char *argv[]) {
             kill(child_pids[i], SIGTERM);
         }
     }
-    // Graceful logoff on termination
-    snprintf(buffer, sizeof(buffer), "QUIT :Bot logging off\r\n");
-    send(sockfd, buffer, strlen(buffer), 0);
     cleanup_shared_resources();
-    close(sockfd);
     return 0;
 }

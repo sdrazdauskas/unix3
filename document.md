@@ -19,7 +19,7 @@
 - **Semaphores:**
   - One for narratives, one for logs, one for alerts
 - **Pipes:**
-  - For admin commands and cross-channel notifications: The main process creates a pipe for each child. The parent writes admin/cross-channel commands to the pipe, and the child listens for commands while handling IRC.
+  - For admin commands and cross-channel notifications
 - **Signals:**
   - For process control (e.g., reload config, shutdown)
 
@@ -34,8 +34,8 @@
 - Ignore messages from nicks matching `b[A-Z0-9]{8}`
 
 ## 3. Example Message Flow
-1. User mentions another channel/user: Child process writes alert to shared memory, signals relevant process. Main process can write a notification to the relevant child's pipe.
-2. Admin issues command: Main process writes command to the relevant child's pipe, which parses and acts on it.
+1. User mentions another channel/user: Child process writes alert to shared memory, signals relevant process.
+2. Admin issues command: Child process parses, validates admin, executes command via pipe/signal.
 
 ## 4. Extensibility
 - Add new narratives to `catalogue/narratives.json`
