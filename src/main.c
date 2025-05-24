@@ -20,6 +20,7 @@
 #include "narrative.h"
 #include "admin.h"
 #include "shared_mem.h"
+#include "print_log.h"
 #include <ctype.h>
 
 volatile sig_atomic_t terminate_flag = 0;
@@ -120,6 +121,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Log startup
+    log_message("[INFO] Bot started and configuration loaded.");
+
     // Main process: dispatcher loop
     while (!terminate_flag) {
         // Read from IRC socket
@@ -128,6 +132,7 @@ int main(int argc, char *argv[]) {
         buffer[n] = 0;
         // Print all server messages for debug
         printf("[IRC] %s", buffer);
+        log_message("[IRC] %s", buffer); // Log all IRC server messages
         fflush(stdout);
         // Respond to PING
         if (strncmp(buffer, "PING", 4) == 0) {
@@ -135,6 +140,7 @@ int main(int argc, char *argv[]) {
             snprintf(pong, sizeof(pong), "PONG%s\r\n", buffer+4);
             send_irc_message(sockfd, pong);
             printf("[MAIN] PONG\n");
+            log_message("[MAIN] PONG sent in response to PING");
             continue;
         }
         // Parse PRIVMSG and forward to correct child
@@ -161,6 +167,7 @@ int main(int argc, char *argv[]) {
                     }
                     if (botnick) {
                         printf("[MAIN] Ignoring bot nick: %s\n", sender);
+                        log_message("[MAIN] Ignoring bot nick: %s", sender);
                         fflush(stdout);
                         line = next;
                         continue;
@@ -169,6 +176,7 @@ int main(int argc, char *argv[]) {
                 // Ignore messages from self
                 if (strcasecmp(sender, config.nickname) == 0) {
                     printf("[MAIN] Ignoring self message from: %s\n", sender);
+                    log_message("[MAIN] Ignoring self message from: %s", sender);
                     fflush(stdout);
                     line = next;
                     continue;
@@ -192,13 +200,16 @@ int main(int argc, char *argv[]) {
                 for (char *p = target_lc; *p; ++p) *p = tolower(*p);
                 // Debug: print what we're comparing for private message auth
                 printf("[DEBUG] target_lc='%s', config.nickname='%s'\n", target_lc, config.nickname);
+                log_message("[DEBUG] target_lc='%s', config.nickname='%s'", target_lc, config.nickname);
                 // --- Admin authentication logic ---
                 // If private message to bot, check for !auth
                 if (strcasecmp(target_lc, config.nickname) == 0 && strncmp(msg, "!auth ", 6) == 0) {
                     printf("[DEBUG] AUTH attempt: sender='%s', password='%s'\n", sender, msg+6);
+                    log_message("[DEBUG] AUTH attempt: sender='%s'", sender);
                     int found = 0;
                     for (int i = 0; i < config.admin_count; ++i) {
                         printf("[DEBUG] Comparing to admin: name='%s', password='%s'\n", config.admins[i].name, config.admins[i].password);
+                        log_message("[DEBUG] Comparing to admin: name='%s'", config.admins[i].name);
                         if (strcasecmp(config.admins[i].name, sender) == 0 &&
                             strcmp(config.admins[i].password, msg+6) == 0) {
                             add_authed_admin(sender);
@@ -208,6 +219,7 @@ int main(int argc, char *argv[]) {
                     }
                     if (found) {
                         printf("[AUTH] %s authenticated as admin.\n", sender);
+                        log_message("[AUTH] %s authenticated as admin.", sender);
                         // Send a private message to the user
                         char privmsg[256];
                         snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
@@ -218,6 +230,7 @@ int main(int argc, char *argv[]) {
                         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :[DEBUG] Authenticated admin: %s\r\n", sender);
                         send_irc_message(sockfd, adminmsg);
                     } else {
+                        log_message("[AUTH] Failed admin auth attempt by: %s", sender);
                         // Optionally, you could send an auth failed message to #admin as well
                         char failmsg[256];
                         snprintf(failmsg, sizeof(failmsg), "PRIVMSG #admin :[DEBUG] Failed admin auth attempt by: %s\r\n", sender);
@@ -233,6 +246,7 @@ int main(int argc, char *argv[]) {
                     for (char *p = chan_lc; *p; ++p) *p = tolower(*p);
                     if (strcmp(target_lc, chan_lc) == 0) {
                         // Forward the full IRC line to the child, ensure \r\n ending
+                        log_message("[FORWARD] Forwarding message from '%s' to channel '%s'", sender, chan_lc);
                         write(pipes[i][1], line, strlen(line));
                         write(pipes[i][1], "\r\n", 2);
                         break;
@@ -248,6 +262,7 @@ int main(int argc, char *argv[]) {
             kill(child_pids[i], SIGTERM);
         }
     }
+    log_message("[INFO] Bot shutting down.");
     cleanup_shared_resources();
     return 0;
 }
