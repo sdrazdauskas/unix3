@@ -227,16 +227,6 @@ int main(int argc, char *argv[]) {
                     usleep(200000);
                     line = next; continue;
                 }
-                if (strcasecmp(target_lc, "#admin") == 0 && strncmp(msg, "!removeignore", 13) == 0) {
-                    admin_state->ignored_nick[0] = '\0';
-                    printf("[ADMIN] Ignore removed via !removeignore.\n");
-                    char adminmsg[256];
-                    snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Ignore removed, bot will listen to all users again.\r\n");
-                    send_irc_message(sockfd, adminmsg);
-                    fflush(stdout);
-                    usleep(200000);
-                    line = next; continue;
-                }
                 // Forward all other PRIVMSGs to the correct child (no admin filtering here)
                 for (int i = 0; i < config.channel_count; ++i) {
                     snprintf(chan_lc, sizeof(chan_lc), "%s", config.channels[i]);

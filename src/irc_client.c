@@ -44,6 +44,40 @@ int is_admin(const BotConfig *config, const char *nick) {
     return 0;
 }
 
+static char ignored_nicks[MAX_IGNORED][64];
+static int ignored_count = 0;
+
+int is_ignored_user(const char *nick) {
+    for (int i = 0; i < ignored_count; ++i) {
+        if (strcasecmp(ignored_nicks[i], nick) == 0) return 1;
+    }
+    return 0;
+}
+
+void add_ignored_user(const char *nick) {
+    if (!is_ignored_user(nick) && ignored_count < MAX_IGNORED) {
+        strncpy(ignored_nicks[ignored_count], nick, 63);
+        ignored_nicks[ignored_count][63] = 0;
+        ignored_count++;
+    }
+}
+
+void remove_ignored_user(const char *nick) {
+    for (int i = 0; i < ignored_count; ++i) {
+        if (strcasecmp(ignored_nicks[i], nick) == 0) {
+            for (int j = i; j < ignored_count - 1; ++j) {
+                strncpy(ignored_nicks[j], ignored_nicks[j+1], 64);
+            }
+            ignored_count--;
+            break;
+        }
+    }
+}
+
+void clear_ignored_users(void) {
+    ignored_count = 0;
+}
+
 // Helper to send IRC message with locking and delay
 void send_irc_message(int sockfd, const char *msg) {
     sem_lock();
@@ -119,19 +153,23 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 admin_state->stop_talking = 0;
                                 printf("[ADMIN] Stop talking deactivated\n");
                             } else if (strncmp(msg, "!ignore ", 8) == 0) {
-                                strncpy(admin_state->ignored_nick, msg+8, sizeof(admin_state->ignored_nick)-1);
-                                admin_state->ignored_nick[sizeof(admin_state->ignored_nick)-1] = 0;
-                                printf("[ADMIN] Now ignoring: %s\n", admin_state->ignored_nick);
+                                add_ignored_user(msg+8);
+                                printf("[ADMIN] Now ignoring: %s\n", msg+8);
                                 // Announce in #admin
                                 char adminmsg[256];
-                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Now ignoring user: %s\r\n", admin_state->ignored_nick);
+                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Now ignoring user: %s\r\n", msg+8);
                                 send_irc_message(sockfd, adminmsg);
-                            } else if (strncmp(msg, "!resume", 7) == 0) {
-                                admin_state->ignored_nick[0] = '\0';
-                                printf("[ADMIN] Ignore cleared.\n");
-                                // Announce in #admin
+                            } else if (strncmp(msg, "!removeignore ", 14) == 0) {
+                                remove_ignored_user(msg+14);
+                                printf("[ADMIN] Ignore removed for: %s\n", msg+14);
                                 char adminmsg[256];
-                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Resumed listening to all users.\r\n");
+                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Ignore removed for user: %s\r\n", msg+14);
+                                send_irc_message(sockfd, adminmsg);
+                            } else if (strncmp(msg, "!clearignore", 12) == 0) {
+                                clear_ignored_users();
+                                printf("[ADMIN] All ignores cleared.\n");
+                                char adminmsg[256];
+                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :All ignores cleared.\r\n");
                                 send_irc_message(sockfd, adminmsg);
                             } else if (strncmp(msg, "!topic ", 7) == 0) {
                                 strncpy(admin_state->current_topic, msg+7, sizeof(admin_state->current_topic)-1);
@@ -144,7 +182,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                             // If stop_talking is set, do not reply
                             if (admin_state->stop_talking) { line = next; continue; }
                             // If sender is ignored, do not reply
-                            if (admin_state->ignored_nick[0] && strcasecmp(sender, admin_state->ignored_nick) == 0) { line = next; continue; }
+                            if (is_ignored_user(sender)) { line = next; continue; }
                             // If topic is set, respond to !topic? with the topic
                             if (strncmp(msg, "!topic?", 7) == 0 && admin_state->current_topic[0]) {
                                 char reply[512];
