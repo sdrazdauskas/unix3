@@ -149,32 +149,37 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                             if (strncmp(msg, "!stop", 5) == 0) {
                                 admin_state->stop_talking = 1;
                                 printf("[ADMIN] Stop talking activated\n");
+                                continue;
                             } else if (strncmp(msg, "!start", 6) == 0) {
                                 admin_state->stop_talking = 0;
                                 printf("[ADMIN] Stop talking deactivated\n");
+                                continue;
                             } else if (strncmp(msg, "!ignore ", 8) == 0) {
                                 add_ignored_user(msg+8);
                                 printf("[ADMIN] Now ignoring: %s\n", msg+8);
-                                // Announce in #admin
                                 char adminmsg[256];
                                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Now ignoring user: %s\r\n", msg+8);
                                 send_irc_message(sockfd, adminmsg);
+                                continue;
                             } else if (strncmp(msg, "!removeignore ", 14) == 0) {
                                 remove_ignored_user(msg+14);
                                 printf("[ADMIN] Ignore removed for: %s\n", msg+14);
                                 char adminmsg[256];
                                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Ignore removed for user: %s\r\n", msg+14);
                                 send_irc_message(sockfd, adminmsg);
+                                continue;
                             } else if (strncmp(msg, "!clearignore", 12) == 0) {
                                 clear_ignored_users();
                                 printf("[ADMIN] All ignores cleared.\n");
                                 char adminmsg[256];
                                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :All ignores cleared.\r\n");
                                 send_irc_message(sockfd, adminmsg);
+                                continue;
                             } else if (strncmp(msg, "!topic ", 7) == 0) {
                                 strncpy(admin_state->current_topic, msg+7, sizeof(admin_state->current_topic)-1);
                                 admin_state->current_topic[sizeof(admin_state->current_topic)-1] = 0;
                                 printf("[ADMIN] Topic changed to: %s\n", admin_state->current_topic);
+                                continue;
                             }
                         }
                         // For all channels: obey admin state
