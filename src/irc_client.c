@@ -1,4 +1,3 @@
-// irc_client.c - Minimal IRC client implementation
 #include "irc_client.h"
 #include "shared_mem.h"
 #include "narrative.h"
@@ -12,7 +11,7 @@
 #include <netdb.h>
 #include <ctype.h>
 #include <signal.h>
-#include <strings.h> // for strcasecmp
+#include <strings.h>
 #include <stdbool.h>
 #include <time.h>
 #ifdef _WIN32
@@ -194,7 +193,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                         // For all channels: obey admin state
                         if (strcmp(target_lc, config_chan_lc) == 0) {
                             // If stop_talking is set, do not reply
-                            if (admin_state->stop_talking) { line = next; continue; }
+                            if (admin_state->stop_talking[channel_index]) { line = next; continue; }
                             // If sender is ignored, do not reply
                             if (is_ignored_user(sender)) {
                                 printf("[DEBUG] Ignoring user: %s\n", sender);

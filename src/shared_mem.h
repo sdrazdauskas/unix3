@@ -4,6 +4,7 @@
 
 #define LOG_BUF_SIZE 4096
 #define MAX_IGNORED 32
+#define MAX_CHANNELS 10
 
 int init_shared_resources();
 void cleanup_shared_resources();
@@ -11,7 +12,7 @@ int sem_lock();
 int sem_unlock();
 
 typedef struct {
-    int stop_talking;
+    int stop_talking[MAX_CHANNELS];
     char current_topic[256];
 } AdminState;
 

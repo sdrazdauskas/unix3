@@ -63,7 +63,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         char *chan = (char*)msg + 6;
         for (int i = 0; i < MAX_CHANNELS; ++i) {
             if (strcasecmp(chan, config->channels[i]) == 0) {
-                admin_state->stop_talking = 1;
+                admin_state->stop_talking[i] = 1;
                 printf("[ADMIN] Stop talking activated for channel: %s\n", chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will stop talking in %s.\r\n", chan);
@@ -76,7 +76,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         char *chan = (char*)msg + 7;
         for (int i = 0; i < MAX_CHANNELS; ++i) {
             if (strcasecmp(chan, config->channels[i]) == 0) {
-                admin_state->stop_talking = 0;
+                admin_state->stop_talking[i] = 0;
                 printf("[ADMIN] Stop talking deactivated for channel: %s\n", chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will resume talking in %s.\r\n", chan);
