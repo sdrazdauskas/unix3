@@ -207,41 +207,12 @@ int main(int argc, char *argv[]) {
                 // --- Admin authentication logic ---
                 // If private message to bot, check for !auth
                 if (strcasecmp(target_lc, config.nickname) == 0 && strncmp(msg, "!auth ", 6) == 0) {
-                    printf("[DEBUG] AUTH attempt: sender='%s', password='%s'\n", sender, msg+6);
-                    log_message("[DEBUG] AUTH attempt: sender='%s'", sender);
-                    int found = 0;
-                    for (int i = 0; i < config.admin_count; ++i) {
-                        printf("[DEBUG] Comparing to admin: name='%s', password='%s'\n", config.admins[i].name, config.admins[i].password);
-                        log_message("[DEBUG] Comparing to admin: name='%s'", config.admins[i].name);
-                        if (strcasecmp(config.admins[i].name, sender) == 0 &&
-                            strcmp(config.admins[i].password, msg+6) == 0) {
-                            add_authed_admin(sender);
-                            found = 1;
-                            break;
-                        }
-                    }
-                    if (found) {
-                        printf("[AUTH] %s authenticated as admin.\n", sender);
-                        log_message("[AUTH] %s authenticated as admin.", sender);
-                        // Send a private message to the user
-                        char privmsg[256];
-                        snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
-                        printf("[DEBUG] full PRIVMSG to user: %s", privmsg); // Show the full message
-                        send_irc_message(sockfd, privmsg);
-                        // Also send a debug/auth message to #admin channel
-                        char adminmsg[256];
-                        snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :[DEBUG] Authenticated admin: %s\r\n", sender);
-                        send_irc_message(sockfd, adminmsg);
+                    if (try_admin_auth(sender, msg+6, &config, sockfd)) {
+                        // Auth handled, skip further processing
+                        line = next; continue;
                     } else {
-                        log_message("[AUTH] Failed admin auth attempt by: %s", sender);
-                        // Optionally, you could send an auth failed message to #admin as well
-                        char failmsg[256];
-                        snprintf(failmsg, sizeof(failmsg), "PRIVMSG #admin :[DEBUG] Failed admin auth attempt by: %s\r\n", sender);
-                        send_irc_message(sockfd, failmsg);
+                        line = next; continue;
                     }
-                    fflush(stdout);
-                    usleep(200000);
-                    line = next; continue;
                 }
                 // Forward all other PRIVMSGs to the correct child (no admin filtering here)
                 for (int i = 0; i < config.channel_count; ++i) {
