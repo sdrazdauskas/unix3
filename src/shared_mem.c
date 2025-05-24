@@ -5,8 +5,13 @@
 #include <sys/sem.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <string.h>
 
 static int sem_id = -1;
+
+AdminState *admin_state = NULL;
 
 int init_shared_resources() {
     // Stub: just print for now
@@ -17,6 +22,15 @@ int init_shared_resources() {
     if (sem_id == -1) { perror("semget"); return -1; }
     // Initialize to 1 (unlocked)
     semctl(sem_id, 0, SETVAL, 1);
+
+    // Allocate shared memory for admin_state
+    admin_state = mmap(NULL, sizeof(AdminState), PROT_READ | PROT_WRITE,
+                       MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (admin_state == MAP_FAILED) {
+        perror("mmap");
+        return -1;
+    }
+    memset(admin_state, 0, sizeof(AdminState));
     return 0;
 }
 
@@ -36,4 +50,5 @@ void cleanup_shared_resources() {
     // Stub: just print for now
     printf("Cleaning up shared resources\n");
     if (sem_id != -1) semctl(sem_id, 0, IPC_RMID);
+    if (admin_state) munmap(admin_state, sizeof(AdminState));
 }
