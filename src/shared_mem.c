@@ -53,7 +53,6 @@ int sem_unlock() {
     return 0;
 }
 
-// Remove shared memory log, use file-based log
 void log_message(const char *fmt, ...) {
     FILE *f = fopen(LOG_FILE_PATH, "a");
     if (!f) return;
