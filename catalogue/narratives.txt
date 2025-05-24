@@ -3,4 +3,4 @@
 #unix|*|I'm here to help with Unix questions.
 #random|hello|Hey there! Welcome to #random.
 #random|*|Let's talk about anything!
-#admin|*|Admin channel. Use commands to control the bot.
+#admin|*|Admin channel, use commands to control the bot.

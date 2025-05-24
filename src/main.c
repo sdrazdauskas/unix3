@@ -28,27 +28,6 @@ void handle_termination(int sig) {
     terminate_flag = 1;
 }
 
-// --- Admin authentication state ---
-#define MAX_AUTHED 10
-static char authed_admins[MAX_AUTHED][64];
-static int authed_count = 0;
-
-// Returns 1 if nick is authenticated
-static int is_authed_admin(const char *nick) {
-    for (int i = 0; i < authed_count; ++i) {
-        if (strcasecmp(authed_admins[i], nick) == 0) return 1;
-    }
-    return 0;
-}
-// Add nick to authenticated list
-static void add_authed_admin(const char *nick) {
-    if (!is_authed_admin(nick) && authed_count < MAX_AUTHED) {
-        strncpy(authed_admins[authed_count], nick, 63);
-        authed_admins[authed_count][63] = 0;
-        authed_count++;
-    }
-}
-
 int main(int argc, char *argv[]) {
     // Register signal handlers for graceful shutdown
     signal(SIGINT, handle_termination);   // Ctrl+C
@@ -154,10 +133,7 @@ int main(int argc, char *argv[]) {
         if (strncmp(buffer, "PING", 4) == 0) {
             char pong[512];
             snprintf(pong, sizeof(pong), "PONG%s\r\n", buffer+4);
-            sem_lock();
-            send(sockfd, pong, strlen(pong), 0);
-            sem_unlock();
-            usleep(200000);
+            send_irc_message(sockfd, pong);
             printf("[MAIN] PONG\n");
             continue;
         }
@@ -236,26 +212,27 @@ int main(int argc, char *argv[]) {
                         char privmsg[256];
                         snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
                         printf("[DEBUG] full PRIVMSG to user: %s", privmsg); // Show the full message
-                        sem_lock();
-                        int sent_priv = send(sockfd, privmsg, strlen(privmsg), 0);
-                        sem_unlock();
-                        printf("[DEBUG] send() returned %d (private)\n", sent_priv);
+                        send_irc_message(sockfd, privmsg);
                         // Also send a debug/auth message to #admin channel
                         char adminmsg[256];
                         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :[DEBUG] Authenticated admin: %s\r\n", sender);
-                        sem_lock();
-                        int sent = send(sockfd, adminmsg, strlen(adminmsg), 0);
-                        sem_unlock();
-                        printf("[DEBUG] send() returned %d (channel)\n", sent);
+                        send_irc_message(sockfd, adminmsg);
                     } else {
                         // Optionally, you could send an auth failed message to #admin as well
                         char failmsg[256];
                         snprintf(failmsg, sizeof(failmsg), "PRIVMSG #admin :[DEBUG] Failed admin auth attempt by: %s\r\n", sender);
-                        sem_lock();
-                        int sent = send(sockfd, failmsg, strlen(failmsg), 0);
-                        sem_unlock();
-                        printf("[DEBUG] send() returned %d (fail to channel)\n", sent);
+                        send_irc_message(sockfd, failmsg);
                     }
+                    fflush(stdout);
+                    usleep(200000);
+                    line = next; continue;
+                }
+                if (strcasecmp(target_lc, "#admin") == 0 && strncmp(msg, "!removeignore", 13) == 0) {
+                    admin_state->ignored_nick[0] = '\0';
+                    printf("[ADMIN] Ignore removed via !removeignore.\n");
+                    char adminmsg[256];
+                    snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Ignore removed, bot will listen to all users again.\r\n");
+                    send_irc_message(sockfd, adminmsg);
                     fflush(stdout);
                     usleep(200000);
                     line = next; continue;

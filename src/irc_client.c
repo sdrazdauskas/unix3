@@ -44,6 +44,14 @@ int is_admin(const BotConfig *config, const char *nick) {
     return 0;
 }
 
+// Helper to send IRC message with locking and delay
+void send_irc_message(int sockfd, const char *msg) {
+    sem_lock();
+    send(sockfd, msg, strlen(msg), 0);
+    sem_unlock();
+    usleep(100000); // 100ms delay to avoid flooding
+}
+
 void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, int pipe_fd) {
     // Register signal handlers for graceful shutdown
     signal(SIGINT, handle_termination);   // Ctrl+C
@@ -58,7 +66,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
     printf("[DEBUG] Child process joining channel: '%s'\n", config->channels[channel_index]);
     fflush(stdout);
     snprintf(buffer, sizeof(buffer), "JOIN %s\r\n", config->channels[channel_index]);
-    send(sockfd, buffer, strlen(buffer), 0);
+    send_irc_message(sockfd, buffer);
     usleep(100000); // 100ms delay to avoid flooding
     // Main loop: print server messages and listen for pipe commands
     fd_set fds;
@@ -114,6 +122,17 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 strncpy(admin_state->ignored_nick, msg+8, sizeof(admin_state->ignored_nick)-1);
                                 admin_state->ignored_nick[sizeof(admin_state->ignored_nick)-1] = 0;
                                 printf("[ADMIN] Now ignoring: %s\n", admin_state->ignored_nick);
+                                // Announce in #admin
+                                char adminmsg[256];
+                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Now ignoring user: %s\r\n", admin_state->ignored_nick);
+                                send_irc_message(sockfd, adminmsg);
+                            } else if (strncmp(msg, "!resume", 7) == 0) {
+                                admin_state->ignored_nick[0] = '\0';
+                                printf("[ADMIN] Ignore cleared.\n");
+                                // Announce in #admin
+                                char adminmsg[256];
+                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Resumed listening to all users.\r\n");
+                                send_irc_message(sockfd, adminmsg);
                             } else if (strncmp(msg, "!topic ", 7) == 0) {
                                 strncpy(admin_state->current_topic, msg+7, sizeof(admin_state->current_topic)-1);
                                 admin_state->current_topic[sizeof(admin_state->current_topic)-1] = 0;
@@ -132,10 +151,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 snprintf(reply, sizeof(reply), "PRIVMSG %s :Current topic: %s\r\n", target, admin_state->current_topic);
                                 printf("[CHILD %d] Sending to IRC: %s\n", channel_index, reply);
                                 fflush(stdout);
-                                sem_lock();
-                                send(sockfd, reply, strlen(reply), 0);
-                                sem_unlock();
-                                usleep(200000);
+                                send_irc_message(sockfd, reply);
                                 line = next; continue;
                             }
                             // Normal narrative response
@@ -145,10 +161,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 snprintf(reply, sizeof(reply), "PRIVMSG %s :%s\r\n", target, reply_text);
                                 printf("[CHILD %d] Sending to IRC: %s\n", channel_index, reply);
                                 fflush(stdout);
-                                sem_lock();
-                                send(sockfd, reply, strlen(reply), 0);
-                                sem_unlock();
-                                usleep(200000);
+                                send_irc_message(sockfd, reply);
                             }
                         }
                     }
@@ -159,8 +172,6 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
     }
     // Graceful logoff on termination
     snprintf(buffer, sizeof(buffer), "QUIT :Bot logging off\r\n");
-    sem_lock();
-    send(sockfd, buffer, strlen(buffer), 0);
-    sem_unlock();
+    send_irc_message(sockfd, buffer);
     // Do not close sockfd here; main process is responsible for closing the IRC socket
 }

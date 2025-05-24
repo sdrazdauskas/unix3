@@ -4,5 +4,6 @@
 #include "config.h"
 
 void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, int pipe_fd);
+void send_irc_message(int sockfd, const char *msg);
 
 #endif
