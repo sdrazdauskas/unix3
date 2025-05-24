@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
 static int sem_id = -1;
 
@@ -56,6 +57,12 @@ int sem_unlock() {
 void log_message(const char *fmt, ...) {
     FILE *f = fopen(LOG_FILE_PATH, "a");
     if (!f) return;
+    // Add timestamp
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    char timebuf[32];
+    strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tm_info);
+    fprintf(f, "[%s] ", timebuf);
     va_list args;
     va_start(args, fmt);
     vfprintf(f, fmt, args);
