@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Load narratives
+    trim_whitespace(config.narratives_path);
     if (load_narratives(config.narratives_path) != 0) {
         fprintf(stderr, "Failed to load narratives\n");
         return 1;
@@ -222,6 +223,33 @@ int main(int argc, char *argv[]) {
                 }
             }
             line = next;
+        }
+        // Parse NAMES reply (353) and forward to correct child
+        if (strstr(buffer, " 353 ")) {
+            // Example: :irc.server 353 mynick = #chan :user1 user2 user3\r\n
+            char *chan_start = strchr(buffer, '#');
+            if (chan_start) {
+                char chan_name[256];
+                int i = 0;
+                while (chan_start[i] && chan_start[i] != ' ' && chan_start[i] != '\r' && chan_start[i] != '\n' && i < 255) {
+                    chan_name[i] = chan_start[i];
+                    i++;
+                }
+                chan_name[i] = 0;
+                // Find which channel index this is
+                int chan_idx = -1;
+                for (int c = 0; c < config.channel_count; ++c) {
+                    if (strcasecmp(chan_name, config.channels[c]) == 0) {
+                        chan_idx = c;
+                        break;
+                    }
+                }
+                if (chan_idx != -1) {
+                    // Forward the full NAMES reply to the correct child
+                    write(pipes[chan_idx][1], buffer, strlen(buffer));
+                    write(pipes[chan_idx][1], "\r\n", 2);
+                }
+            }
         }
     }
     // On termination, signal all children to stop

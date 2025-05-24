@@ -3,6 +3,7 @@
 #include "narrative.h"
 #include "admin.h"
 #include "utils.h"
+#include "mention.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -139,7 +140,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                 printf("[CHILD %d] Received from pipe: %s\n", channel_index, buffer);
                 fflush(stdout);
                 // Process each IRC line in buffer (split on \r\n)
-                char *line = buffer;
+				char *line = buffer;
                 while (line && *line) {
                     char *next = strstr(line, "\r\n");
                     if (next) { *next = 0; next += 2; }
@@ -195,24 +196,9 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 line = next; continue;
                             }
                             // Alert if message mentions another channel (word boundary check)
-                            for (int i = 0; i < config->channel_count; ++i) {
-                                if (i == channel_index) continue;
-                                const char *chan_name = config->channels[i];
-                                size_t chan_len = strlen(chan_name);
-                                const char *p = msg;
-                                while ((p = strcasestr(p, chan_name)) != NULL) {
-                                    int start_ok = (p == msg) || !isalnum((unsigned char)*(p-1));
-                                    int end_ok = !isalnum((unsigned char)*(p+chan_len));
-                                    if (start_ok && end_ok) {
-                                        char alert[512];
-                                        snprintf(alert, sizeof(alert), "PRIVMSG %s :[ALERT] %s mentioned this channel (%s) in %s\r\n", chan_name, sender, chan_name, config->channels[channel_index]);
-                                        send_irc_message(sockfd, alert);
-                                        break; // Only alert once per channel per message
-                                    }
-                                    p += chan_len;
-                                }
-                            }                          
-
+                            handle_channel_mentions(config, channel_index, sockfd, msg, sender);
+                            // Alert if message mentions a user (of aaaannnn username format) in the channel (case-insensitive)
+                            handle_user_mentions(config, channel_index, sockfd, msg, sender);
 
                             // Normal narrative response
                             const char* reply_text = get_narrative_response(config_chan_lc, msg);
@@ -224,6 +210,10 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 send_irc_message(sockfd, reply);
                             }
                         }
+                    }
+                    // Handle NAMES reply (353) for user mention alert
+                    if (strncmp(line, ":", 1) == 0 && strstr(line, " 353 ")) {
+                        handle_names_reply(line, channel_index, sockfd);
                     }
                     line = next;
                 }
