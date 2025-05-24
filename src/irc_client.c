@@ -146,13 +146,33 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                         // Admin channel: handle secret commands
                         if (strcmp(config_chan_lc, "#admin") == 0) {
                             // Only accept commands from authenticated admin (handled in main process)
-                            if (strncmp(msg, "!stop", 5) == 0) {
-                                admin_state->stop_talking = 1;
-                                printf("[ADMIN] Stop talking activated\n");
+                            if (strncmp(msg, "!stop ", 6) == 0) {
+                                // !stop <channel>
+                                char *chan = msg + 6;
+                                for (int i = 0; i < MAX_CHANNELS; ++i) {
+                                    if (strcasecmp(chan, config->channels[i]) == 0) {
+                                        admin_state->stop_talking = 1;
+                                        printf("[ADMIN] Stop talking activated for channel: %s\n", chan);
+                                        char adminmsg[256];
+                                        snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will stop talking in %s.\r\n", chan);
+                                        send_irc_message(sockfd, adminmsg);
+                                        break;
+                                    }
+                                }
                                 continue;
-                            } else if (strncmp(msg, "!start", 6) == 0) {
-                                admin_state->stop_talking = 0;
-                                printf("[ADMIN] Stop talking deactivated\n");
+                            } else if (strncmp(msg, "!start ", 7) == 0) {
+                                // !start <channel>
+                                char *chan = msg + 7;
+                                for (int i = 0; i < MAX_CHANNELS; ++i) {
+                                    if (strcasecmp(chan, config->channels[i]) == 0) {
+                                        admin_state->stop_talking = 0;
+                                        printf("[ADMIN] Stop talking deactivated for channel: %s\n", chan);
+                                        char adminmsg[256];
+                                        snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will resume talking in %s.\r\n", chan);
+                                        send_irc_message(sockfd, adminmsg);
+                                        break;
+                                    }
+                                }
                                 continue;
                             } else if (strncmp(msg, "!ignore ", 8) == 0) {
                                 add_ignored_user(msg+8);
