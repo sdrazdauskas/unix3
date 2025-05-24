@@ -44,14 +44,11 @@ void clear_authed_admins(void) {
 
 // Returns 1 if a command was handled and should continue, 0 otherwise
 int handle_admin_command(const char *sender, const char *msg, const BotConfig *config, int sockfd, SharedData *shared_data) {
-    // Debug: print sender and message at entry
-    printf("[ADMIN DEBUG] sender='%s', msg='%s'\n", sender, msg);
     // Ignore admin commands from ignored users, except !removeignore
     if (is_ignored_user(sender) && strncmp(msg, "!removeignore ", 14) != 0) {
         printf("[ADMIN] Ignored admin command from: %s\n", sender);
         return 1;
     }
-    printf("[ADMIN DEBUG] sender not ignored, checking auth\n");
     if (!is_authed_admin(sender)) {
         char warnmsg[256];
         snprintf(warnmsg, sizeof(warnmsg), "PRIVMSG #admin :You must authenticate with /msg %s !auth password before using admin commands.\r\n", config->nickname);
@@ -106,10 +103,26 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :All ignores cleared.\r\n");
         send_irc_message(sockfd, adminmsg);
         return 1;
-    } else if (strncmp(msg, "!topic ", 7) == 0) {
-        strncpy(shared_data->current_topic, msg+7, sizeof(shared_data->current_topic)-1);
+    } else if (strncmp(msg, "!settopic ", 10) == 0) {
+        strncpy(shared_data->current_topic, msg+10, sizeof(shared_data->current_topic)-1);
         shared_data->current_topic[sizeof(shared_data->current_topic)-1] = 0;
         printf("[ADMIN] Topic changed to: %s\n", shared_data->current_topic);
+        char adminmsg[256];
+        #define ADMINMSG_PREFIX2 "PRIVMSG #admin :Topic changed to: "
+        snprintf(adminmsg, sizeof(adminmsg), ADMINMSG_PREFIX2 "%.*s\r\n",
+            (int)(sizeof(adminmsg) - sizeof(ADMINMSG_PREFIX2) - 3), shared_data->current_topic);
+        send_irc_message(sockfd, adminmsg);
+        return 1;
+    } else if (strncmp(msg, "!topic", 6) == 0) {
+        char adminmsg[256];
+        #define ADMINMSG_PREFIX "PRIVMSG #admin :Current topic is: "
+        if (shared_data->current_topic[0]) {
+            snprintf(adminmsg, sizeof(adminmsg), ADMINMSG_PREFIX "%.*s\r\n",
+                (int)(sizeof(adminmsg) - sizeof(ADMINMSG_PREFIX) - 3), shared_data->current_topic);
+        } else {
+            snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :No topic is currently set.\r\n");
+        }
+        send_irc_message(sockfd, adminmsg);
         return 1;
     }
     // If authenticated but not a recognized command, send a prompt
