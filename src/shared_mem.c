@@ -13,14 +13,12 @@
 
 static int sem_id = -1;
 
-AdminState *admin_state = NULL;
 SharedData *shared_data = NULL;
 
 #define LOG_BUF_SIZE 4096
 #define LOG_FILE_PATH "bot.log"
 
 int init_shared_resources() {
-    // Stub: just print for now
     printf("Initializing shared resources\n");
     key_t key = ftok("/tmp", 'B');
     if (key == -1) { perror("ftok"); return -1; }
@@ -37,7 +35,6 @@ int init_shared_resources() {
         return -1;
     }
     memset(shared_data, 0, sizeof(SharedData));
-    admin_state = &shared_data->admin;
     // Set up ignore list pointers for shared memory
     extern void set_shared_ignore_ptrs(char (*nicks)[64], int *count);
     set_shared_ignore_ptrs(shared_data->ignored_nicks, &shared_data->ignored_count);
@@ -84,7 +81,6 @@ int read_shared_log(char *out, int out_size) {
 }
 
 void cleanup_shared_resources() {
-    // Stub: just print for now
     printf("Cleaning up shared resources\n");
     if (sem_id != -1) semctl(sem_id, 0, IPC_RMID);
     if (shared_data) munmap(shared_data, sizeof(SharedData));

@@ -186,14 +186,14 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                         // Admin channel: handle secret commands
                         if (strcmp(config_chan_lc, "#admin") == 0) {
                             // Call the extracted admin command handler
-                            if (handle_admin_command(sender, msg, config, sockfd, admin_state)) {
+                            if (handle_admin_command(sender, msg, config, sockfd, shared_data)) {
                                 continue;
                             }
                         }
                         // For all channels: obey admin state
                         if (strcmp(target_lc, config_chan_lc) == 0) {
                             // If stop_talking is set, do not reply
-                            if (admin_state->stop_talking[channel_index]) { line = next; continue; }
+                            if (shared_data->stop_talking[channel_index]) { line = next; continue; }
                             // If sender is ignored, do not reply
                             if (is_ignored_user(sender)) {
                                 printf("[DEBUG] Ignoring user: %s\n", sender);
@@ -201,9 +201,9 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 continue;
                             }
                             // If topic is set, respond to !topic? with the topic
-                            if (strncmp(msg, "!topic?", 7) == 0 && admin_state->current_topic[0]) {
+                            if (strncmp(msg, "!topic?", 7) == 0 && shared_data->current_topic[0]) {
                                 char reply[512];
-                                snprintf(reply, sizeof(reply), "PRIVMSG %s :Current topic: %s\r\n", target, admin_state->current_topic);
+                                snprintf(reply, sizeof(reply), "PRIVMSG %s :Current topic: %s\r\n", target, shared_data->current_topic);
                                 printf("[CHILD %d] Sending to IRC: %s\n", channel_index, reply);
                                 fflush(stdout);
                                 send_irc_message(sockfd, reply);

@@ -14,7 +14,7 @@ void add_authed_admin(const char *nick);
 // Optionally, clear all authed admins (for testing or reload)
 void clear_authed_admins(void);
 // Returns 1 if a command was handled and should continue, 0 otherwise
-int handle_admin_command(const char *sender, const char *msg, const BotConfig *config, int sockfd, AdminState *admin_state);
+int handle_admin_command(const char *sender, const char *msg, const BotConfig *config, int sockfd, SharedData *shared_data);
 void set_shared_admin_auth_ptr(void *ptr);
 
 #endif

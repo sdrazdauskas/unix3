@@ -14,10 +14,6 @@ int sem_unlock();
 typedef struct {
     int stop_talking[MAX_CHANNELS];
     char current_topic[256];
-} AdminState;
-
-typedef struct {
-    AdminState admin;
     char authed_admins[10][64];
     int authed_count;
     char ignored_nicks[MAX_IGNORED][64];
@@ -26,7 +22,6 @@ typedef struct {
     int log_offset;
 } SharedData;
 
-extern AdminState *admin_state;
 extern SharedData *shared_data;
 
 // Helper to get pointer to shared authed admin struct

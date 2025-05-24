@@ -1,6 +1,6 @@
 #unix|ls|'ls' lists directory contents. Try 'ls -l' for more details.
 #unix|hello|Hello! This is the Unix channel. Ask me anything about Unix!
-#unix|unix|Unix is a family of multitasking, multiuser computer operating systems that derive from the original AT&T Unix. It is known for stability, portability, and its influence on many modern OSes.
+#unix|unix|Unix is a family of multitasking, multi-user computer operating systems that derive from the original AT&T Unix. It is known for stability, portability, and its influence on many modern OSes.
 #unix|*|I'm here to help with Unix questions.
 #random|hello|Hey there! Welcome to #random.
 #random|*|Let's talk about anything!

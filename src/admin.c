@@ -43,7 +43,7 @@ void clear_authed_admins(void) {
 }
 
 // Returns 1 if a command was handled and should continue, 0 otherwise
-int handle_admin_command(const char *sender, const char *msg, const BotConfig *config, int sockfd, AdminState *admin_state) {
+int handle_admin_command(const char *sender, const char *msg, const BotConfig *config, int sockfd, SharedData *shared_data) {
     // Debug: print sender and message at entry
     printf("[ADMIN DEBUG] sender='%s', msg='%s'\n", sender, msg);
     // Ignore admin commands from ignored users, except !removeignore
@@ -63,7 +63,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         char *chan = (char*)msg + 6;
         for (int i = 0; i < MAX_CHANNELS; ++i) {
             if (strcasecmp(chan, config->channels[i]) == 0) {
-                admin_state->stop_talking[i] = 1;
+                shared_data->stop_talking[i] = 1;
                 printf("[ADMIN] Stop talking activated for channel: %s\n", chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will stop talking in %s.\r\n", chan);
@@ -76,7 +76,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         char *chan = (char*)msg + 7;
         for (int i = 0; i < MAX_CHANNELS; ++i) {
             if (strcasecmp(chan, config->channels[i]) == 0) {
-                admin_state->stop_talking[i] = 0;
+                shared_data->stop_talking[i] = 0;
                 printf("[ADMIN] Stop talking deactivated for channel: %s\n", chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will resume talking in %s.\r\n", chan);
@@ -107,9 +107,9 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         send_irc_message(sockfd, adminmsg);
         return 1;
     } else if (strncmp(msg, "!topic ", 7) == 0) {
-        strncpy(admin_state->current_topic, msg+7, sizeof(admin_state->current_topic)-1);
-        admin_state->current_topic[sizeof(admin_state->current_topic)-1] = 0;
-        printf("[ADMIN] Topic changed to: %s\n", admin_state->current_topic);
+        strncpy(shared_data->current_topic, msg+7, sizeof(shared_data->current_topic)-1);
+        shared_data->current_topic[sizeof(shared_data->current_topic)-1] = 0;
+        printf("[ADMIN] Topic changed to: %s\n", shared_data->current_topic);
         return 1;
     }
     // If authenticated but not a recognized command, send a prompt
