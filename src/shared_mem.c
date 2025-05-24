@@ -8,10 +8,15 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdarg.h>
 
 static int sem_id = -1;
 
 AdminState *admin_state = NULL;
+SharedData *shared_data = NULL;
+
+#define LOG_BUF_SIZE 4096
+#define LOG_FILE_PATH "bot.log"
 
 int init_shared_resources() {
     // Stub: just print for now
@@ -23,14 +28,15 @@ int init_shared_resources() {
     // Initialize to 1 (unlocked)
     semctl(sem_id, 0, SETVAL, 1);
 
-    // Allocate shared memory for admin_state
-    admin_state = mmap(NULL, sizeof(AdminState), PROT_READ | PROT_WRITE,
-                       MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (admin_state == MAP_FAILED) {
+    // Allocate shared memory for SharedData (admin + log)
+    shared_data = mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE,
+                      MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (shared_data == MAP_FAILED) {
         perror("mmap");
         return -1;
     }
-    memset(admin_state, 0, sizeof(AdminState));
+    memset(shared_data, 0, sizeof(SharedData));
+    admin_state = &shared_data->admin;
     return 0;
 }
 
@@ -46,9 +52,31 @@ int sem_unlock() {
     return 0;
 }
 
+// Remove shared memory log, use file-based log
+void log_message(const char *fmt, ...) {
+    FILE *f = fopen(LOG_FILE_PATH, "a");
+    if (!f) return;
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(f, fmt, args);
+    va_end(args);
+    fputc('\n', f);
+    fclose(f);
+}
+
+// Read the shared log into a buffer
+int read_shared_log(char *out, int out_size) {
+    FILE *f = fopen(LOG_FILE_PATH, "r");
+    if (!f) { out[0] = 0; return -1; }
+    size_t n = fread(out, 1, out_size-1, f);
+    out[n] = 0;
+    fclose(f);
+    return 0;
+}
+
 void cleanup_shared_resources() {
     // Stub: just print for now
     printf("Cleaning up shared resources\n");
     if (sem_id != -1) semctl(sem_id, 0, IPC_RMID);
-    if (admin_state) munmap(admin_state, sizeof(AdminState));
+    if (shared_data) munmap(shared_data, sizeof(SharedData));
 }

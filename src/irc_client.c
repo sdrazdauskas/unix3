@@ -152,6 +152,11 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 snprintf(warnmsg, sizeof(warnmsg), "PRIVMSG #admin :You must authenticate with /msg %s !auth password before using admin commands.\r\n", config->nickname);
                                 send_irc_message(sockfd, warnmsg);
                                 continue;
+                            } else {
+                                char warnmsg[256];
+                                snprintf(warnmsg, sizeof(warnmsg), "PRIVMSG #admin :You are authenticated. Enter your admin command.\r\n");
+                                send_irc_message(sockfd, warnmsg);
+                                continue;
                             }
                             if (strncmp(msg, "!stop ", 6) == 0) {
                                 // !stop <channel>

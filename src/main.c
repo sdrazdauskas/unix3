@@ -20,7 +20,6 @@
 #include "narrative.h"
 #include "admin.h"
 #include "shared_mem.h"
-#include "print_log.h"
 #include <ctype.h>
 
 volatile sig_atomic_t terminate_flag = 0;
