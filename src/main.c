@@ -28,6 +28,27 @@ void handle_termination(int sig) {
     terminate_flag = 1;
 }
 
+// --- Admin authentication state ---
+#define MAX_AUTHED 10
+static char authed_admins[MAX_AUTHED][64];
+static int authed_count = 0;
+
+// Returns 1 if nick is authenticated
+static int is_authed_admin(const char *nick) {
+    for (int i = 0; i < authed_count; ++i) {
+        if (strcasecmp(authed_admins[i], nick) == 0) return 1;
+    }
+    return 0;
+}
+// Add nick to authenticated list
+static void add_authed_admin(const char *nick) {
+    if (!is_authed_admin(nick) && authed_count < MAX_AUTHED) {
+        strncpy(authed_admins[authed_count], nick, 63);
+        authed_admins[authed_count][63] = 0;
+        authed_count++;
+    }
+}
+
 int main(int argc, char *argv[]) {
     // Register signal handlers for graceful shutdown
     signal(SIGINT, handle_termination);   // Ctrl+C
@@ -119,13 +140,6 @@ int main(int argc, char *argv[]) {
             child_pids[i] = pid;
         }
     }
-    // Main process: example of sending a message to each child
-    // (In real use, this would be based on user/admin input or logic)
-    for (int i = 0; i < config.channel_count; ++i) {
-        char msg[256];
-        snprintf(msg, sizeof(msg), "PRIVMSG %s :Hello from main process!\n", config.channels[i]);
-        write(pipes[i][1], msg, strlen(msg));
-    }
 
     // Main process: dispatcher loop
     while (!terminate_flag) {
@@ -195,10 +209,44 @@ int main(int argc, char *argv[]) {
                 // Only forward if there is a colon (:) after the channel (i.e., a message)
                 char *msg_colon = strchr(space+1, ':');
                 if (!msg_colon) { line = next; continue; }
+                char *msg = msg_colon + 1;
                 // Normalize channel name to lowercase for comparison
                 char target_lc[256], chan_lc[256];
                 snprintf(target_lc, sizeof(target_lc), "%s", chan_name);
                 for (char *p = target_lc; *p; ++p) *p = tolower(*p);
+                // Debug: print what we're comparing for private message auth
+                printf("[DEBUG] target_lc='%s', config.nickname='%s'\n", target_lc, config.nickname);
+                // --- Admin authentication logic ---
+                // If private message to bot, check for !auth
+                if (strcasecmp(target_lc, config.nickname) == 0 && strncmp(msg, "!auth ", 6) == 0) {
+                    printf("[DEBUG] AUTH attempt: sender='%s', password='%s'\n", sender, msg+6);
+                    int found = 0;
+                    for (int i = 0; i < config.admin_count; ++i) {
+                        printf("[DEBUG] Comparing to admin: name='%s', password='%s'\n", config.admins[i].name, config.admins[i].password);
+                        if (strcasecmp(config.admins[i].name, sender) == 0 &&
+                            strcmp(config.admins[i].password, msg+6) == 0) {
+                            add_authed_admin(sender);
+                            found = 1;
+                            break;
+                        }
+                    }
+                    char reply[256];
+                    if (found) {
+                        printf("[AUTH] %s authenticated as admin.\n", sender);
+                        snprintf(reply, sizeof(reply), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
+                    } else {
+                        snprintf(reply, sizeof(reply), "PRIVMSG %s :Authentication failed.\r\n", sender);
+                    }
+                    printf("[DEBUG] Sending reply: '%s'\n", reply);
+                    sem_lock();
+                    int sent = send(sockfd, reply, strlen(reply), 0);
+                    sem_unlock();
+                    printf("[DEBUG] send() returned %d\n", sent);
+                    fflush(stdout);
+                    usleep(200000);
+                    line = next; continue;
+                }
+                // Forward all other PRIVMSGs to the correct child (no admin filtering here)
                 for (int i = 0; i < config.channel_count; ++i) {
                     snprintf(chan_lc, sizeof(chan_lc), "%s", config.channels[i]);
                     for (char *p = chan_lc; *p; ++p) *p = tolower(*p);

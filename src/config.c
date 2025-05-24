@@ -32,16 +32,33 @@ int load_config(const char *path, BotConfig *config) {
                 char *sep = strchr(tok, ':');
                 if (sep) {
                     *sep = 0;
-                    snprintf(config->admins[config->admin_count].name, MAX_STR, "%s", tok);
-                    snprintf(config->admins[config->admin_count].password, MAX_STR, "%s", sep+1);
+                    // Trim leading/trailing whitespace for name
+                    char *name = tok;
+                    while (*name == ' ' || *name == '\t') ++name;
+                    char *end = name + strlen(name) - 1;
+                    while (end > name && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r')) { *end = 0; --end; }
+                    // Trim leading/trailing whitespace for password
+                    char *pass = sep + 1;
+                    while (*pass == ' ' || *pass == '\t') ++pass;
+                    end = pass + strlen(pass) - 1;
+                    while (end > pass && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r')) { *end = 0; --end; }
+                    snprintf(config->admins[config->admin_count].name, MAX_STR, "%s", name);
+                    snprintf(config->admins[config->admin_count].password, MAX_STR, "%s", pass);
                     config->admin_count++;
                 }
                 tok = strtok(NULL, ",\n");
             }
         } else if (strncmp(line, "nickname =", 9) == 0) {
             char *p = strchr(line, '=') + 1;
+            // Trim leading whitespace
+            while (*p == ' ' || *p == '\t') ++p;
+            // Copy and trim trailing whitespace/newline
             snprintf(config->nickname, MAX_STR, "%s", p);
-            config->nickname[strcspn(config->nickname, "\n")] = 0;
+            char *end = config->nickname + strlen(config->nickname) - 1;
+            while (end > config->nickname && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r')) {
+                *end = 0;
+                --end;
+            }
         } else if (strncmp(line, "server =", 7) == 0) {
             char *p = strchr(line, '=') + 1;
             snprintf(config->server, MAX_STR, "%s", p);

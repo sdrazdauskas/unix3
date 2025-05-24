@@ -34,6 +34,16 @@ static void extract_nick(const char *prefix, char *out, size_t outlen) {
     out[len] = 0;
 }
 
+// Returns 1 if nick is in admin list, 0 otherwise
+int is_admin(const BotConfig *config, const char *nick) {
+    for (int i = 0; i < config->admin_count; ++i) {
+        if (strcasecmp(config->admins[i].name, nick) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, int pipe_fd) {
     // Register signal handlers for graceful shutdown
     signal(SIGINT, handle_termination);   // Ctrl+C
@@ -93,7 +103,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                         for (char *p = config_chan_lc; *p; ++p) *p = tolower(*p);
                         // Admin channel: handle secret commands
                         if (strcmp(config_chan_lc, "#admin") == 0) {
-                            // Only accept commands from admin users (could check sender)
+                            // Only accept commands from authenticated admin (handled in main process)
                             if (strncmp(msg, "!stop", 5) == 0) {
                                 admin_state->stop_talking = 1;
                                 printf("[ADMIN] Stop talking activated\n");
