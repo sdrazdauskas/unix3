@@ -142,8 +142,8 @@ int main(int argc, char *argv[]) {
             char pong[512];
             snprintf(pong, sizeof(pong), "PONG%s\r\n", buffer+4);
             send_irc_message(sockfd, pong);
-            printf("[MAIN] PONG\n");
-            log_message("[MAIN] PONG sent in response to PING");
+            printf("[MAIN] %s\n", pong);
+            log_message("[MAIN] PONG %s\n", pong);
             continue;
         }
         // Parse PRIVMSG and forward to correct child
@@ -201,20 +201,13 @@ int main(int argc, char *argv[]) {
                 char target_lc[256], chan_lc[256];
                 snprintf(target_lc, sizeof(target_lc), "%s", chan_name);
                 for (char *p = target_lc; *p; ++p) *p = tolower(*p);
-                // Debug: print what we're comparing for private message auth
-                printf("[DEBUG] target_lc='%s', config.nickname='%s'\n", target_lc, config.nickname);
-                log_message("[DEBUG] target_lc='%s', config.nickname='%s'", target_lc, config.nickname);
-                // --- Admin authentication logic ---
-                // If private message to bot, check for !auth
+
+                // Handle private messages to the bot, currently just for auth
                 if (strcasecmp(target_lc, config.nickname) == 0 && strncmp(msg, "!auth ", 6) == 0) {
-                    if (try_admin_auth(sender, msg+6, &config, sockfd)) {
-                        // Auth handled, skip further processing
-                        line = next; continue;
-                    } else {
-                        line = next; continue;
-                    }
+                    try_admin_auth(sender, msg+6, &config, sockfd);
+                    line = next; continue;
                 }
-                // Forward all other PRIVMSGs to the correct child (no admin filtering here)
+                // Forward all other PRIVMSGs to the correct child
                 for (int i = 0; i < config.channel_count; ++i) {
                     snprintf(chan_lc, sizeof(chan_lc), "%s", config.channels[i]);
                     for (char *p = chan_lc; *p; ++p) *p = tolower(*p);
