@@ -21,6 +21,22 @@
 #include <arpa/inet.h>
 #endif
 
+#ifndef HAVE_STRCASESTR
+static char *strcasestr(const char *haystack, const char *needle) {
+    if (!*needle) return (char *)haystack;
+    for (; *haystack; ++haystack) {
+        const char *h = haystack;
+        const char *n = needle;
+        while (*h && *n && tolower((unsigned char)*h) == tolower((unsigned char)*n)) {
+            ++h;
+            ++n;
+        }
+        if (!*n) return (char *)haystack;
+    }
+    return NULL;
+}
+#endif
+
 // Declare these as extern, definition should be in main.c
 extern volatile sig_atomic_t terminate_flag;
 extern void handle_termination(int sig);
@@ -229,6 +245,26 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 send_irc_message(sockfd, reply);
                                 line = next; continue;
                             }
+                            // Alert if message mentions another channel (word boundary check)
+                            for (int i = 0; i < config->channel_count; ++i) {
+                                if (i == channel_index) continue;
+                                const char *chan_name = config->channels[i];
+                                size_t chan_len = strlen(chan_name);
+                                const char *p = msg;
+                                while ((p = strcasestr(p, chan_name)) != NULL) {
+                                    int start_ok = (p == msg) || !isalnum((unsigned char)*(p-1));
+                                    int end_ok = !isalnum((unsigned char)*(p+chan_len));
+                                    if (start_ok && end_ok) {
+                                        char alert[512];
+                                        snprintf(alert, sizeof(alert), "PRIVMSG %s :[ALERT] %s mentioned this channel (%s) in %s\r\n", chan_name, sender, chan_name, config->channels[channel_index]);
+                                        send_irc_message(sockfd, alert);
+                                        break; // Only alert once per channel per message
+                                    }
+                                    p += chan_len;
+                                }
+                            }                          
+
+
                             // Normal narrative response
                             const char* reply_text = get_narrative_response(config_chan_lc, msg);
                             if (reply_text) {
