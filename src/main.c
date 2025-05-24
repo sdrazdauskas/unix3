@@ -153,6 +153,36 @@ int main(int argc, char *argv[]) {
             if (next) { *next = 0; next += 2; }
             char *privmsg = strstr(line, "PRIVMSG ");
             if (privmsg) {
+                // Extract sender nick (from prefix)
+                char sender[64] = "";
+                if (line[0] == ':') {
+                    const char *bang = strchr(line, '!');
+                    size_t len = bang ? (size_t)(bang - line - 1) : strlen(line+1);
+                    if (len >= sizeof(sender)) len = sizeof(sender)-1;
+                    strncpy(sender, line+1, len);
+                    sender[len] = 0;
+                }
+                // Prevent bot-to-bot loops: ignore nicks starting with 'b' and 9 alphanum
+                if (strlen(sender) == 9 && sender[0] == 'b') {
+                    int botnick = 1;
+                    for (int i = 0; i < 9; ++i) {
+                        if (!isalnum(sender[i])) { botnick = 0; break; }
+                    }
+                    if (botnick) {
+                        // Debug: print ignored bot nick
+                        printf("[MAIN] Ignoring bot nick: %s\n", sender);
+                        fflush(stdout);
+                        line = next;
+                        continue;
+                    }
+                }
+                // Ignore messages from self
+                if (strcasecmp(sender, config.nickname) == 0) {
+                    printf("[MAIN] Ignoring self message from: %s\n", sender);
+                    fflush(stdout);
+                    line = next;
+                    continue;
+                }
                 char *target = privmsg + 8;
                 char *space = strchr(target, ' ');
                 if (!space) { line = next; continue; }
