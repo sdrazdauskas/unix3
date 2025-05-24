@@ -2,6 +2,7 @@
 #include "irc_client.h"
 #include "shared_mem.h"
 #include "narrative.h"
+#include "admin.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -146,6 +147,12 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                         // Admin channel: handle secret commands
                         if (strcmp(config_chan_lc, "#admin") == 0) {
                             // Only accept commands from authenticated admin (handled in main process)
+                            if (!is_authed_admin(sender)) {
+                                char warnmsg[256];
+                                snprintf(warnmsg, sizeof(warnmsg), "PRIVMSG #admin :You must authenticate with /msg %s !auth password before using admin commands.\r\n", config->nickname);
+                                send_irc_message(sockfd, warnmsg);
+                                continue;
+                            }
                             if (strncmp(msg, "!stop ", 6) == 0) {
                                 // !stop <channel>
                                 char *chan = msg + 6;

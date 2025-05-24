@@ -7,7 +7,6 @@
 
 void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, int pipe_fd);
 void send_irc_message(int sockfd, const char *msg);
-// Add support for multiple ignored users
 int is_ignored_user(const char *nick);
 void add_ignored_user(const char *nick);
 void remove_ignored_user(const char *nick);
