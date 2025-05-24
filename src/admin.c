@@ -1,41 +1,64 @@
 // admin.c - Stub for admin command handling
 #include "admin.h"
 #include "irc_client.h"
+#include "shared_mem.h"
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
 
-#define MAX_AUTHED 10
-static char authed_admins[MAX_AUTHED][64];
-static int authed_count = 0;
+typedef struct {
+    char authed_admins[10][64];
+    int authed_count;
+} SharedAdminAuth;
+
+static SharedAdminAuth *shared_auth = NULL;
+
+void set_shared_admin_auth_ptr(void *ptr) {
+    shared_auth = (SharedAdminAuth *)ptr;
+}
 
 int is_authed_admin(const char *nick) {
-    for (int i = 0; i < authed_count; ++i) {
-        if (strcasecmp(authed_admins[i], nick) == 0) return 1;
+    if (!shared_auth) return 0;
+    printf("[ADMIN DEBUG] is_authed_admin: checking '%s' against list:\n", nick);
+    for (int i = 0; i < shared_auth->authed_count; ++i) {
+        printf("  authed_admins[%d]='%s'\n", i, shared_auth->authed_admins[i]);
+        if (strcasecmp(shared_auth->authed_admins[i], nick) == 0) return 1;
     }
     return 0;
 }
 
 void add_authed_admin(const char *nick) {
-    if (!is_authed_admin(nick) && authed_count < MAX_AUTHED) {
-        strncpy(authed_admins[authed_count], nick, 63);
-        authed_admins[authed_count][63] = 0;
-        authed_count++;
+    if (!shared_auth) return;
+    if (!is_authed_admin(nick) && shared_auth->authed_count < 10) {
+        strncpy(shared_auth->authed_admins[shared_auth->authed_count], nick, 63);
+        shared_auth->authed_admins[shared_auth->authed_count][63] = 0;
+        shared_auth->authed_count++;
+        printf("[ADMIN DEBUG] add_authed_admin: added '%s', authed_count=%d\n", nick, shared_auth->authed_count);
     }
 }
 
 void clear_authed_admins(void) {
-    authed_count = 0;
+    if (!shared_auth) return;
+    shared_auth->authed_count = 0;
 }
 
 // Returns 1 if a command was handled and should continue, 0 otherwise
 int handle_admin_command(const char *sender, const char *msg, const BotConfig *config, int sockfd, AdminState *admin_state) {
+    // Debug: print sender and message at entry
+    printf("[ADMIN DEBUG] sender='%s', msg='%s'\n", sender, msg);
+    // Ignore admin commands from ignored users, except !removeignore
+    if (is_ignored_user(sender) && strncmp(msg, "!removeignore ", 14) != 0) {
+        printf("[ADMIN] Ignored admin command from: %s\n", sender);
+        return 1;
+    }
+    printf("[ADMIN DEBUG] sender not ignored, checking auth\n");
     if (!is_authed_admin(sender)) {
         char warnmsg[256];
         snprintf(warnmsg, sizeof(warnmsg), "PRIVMSG #admin :You must authenticate with /msg %s !auth password before using admin commands.\r\n", config->nickname);
         send_irc_message(sockfd, warnmsg);
         return 1;
     }
+    printf("[ADMIN DEBUG] sender is authed\n");
     if (strncmp(msg, "!stop ", 6) == 0) {
         char *chan = (char*)msg + 6;
         for (int i = 0; i < MAX_CHANNELS; ++i) {

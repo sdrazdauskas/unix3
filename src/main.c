@@ -55,6 +55,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to initialize shared resources\n");
         return 1;
     }
+    // After initializing shared resources in main.c:
+    set_shared_admin_auth_ptr(&shared_data->authed_admins);
 
     // Main process: connect to IRC server first
     int sockfd;
@@ -111,6 +113,8 @@ int main(int argc, char *argv[]) {
         if (pid == 0) {
             // Child: close write end, pass read end to irc_channel_loop
             close(pipes[i][1]);
+            // In each child process after mapping shared memory:
+            set_shared_admin_auth_ptr(&shared_data->authed_admins);
             irc_channel_loop(&config, i, sockfd, pipes[i][0]);
             exit(0);
         } else if (pid > 0) {

@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <strings.h> // for strcasecmp
 #include <stdbool.h>
+#include <time.h>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -61,38 +62,46 @@ int is_admin(const BotConfig *config, const char *nick) {
     return 0;
 }
 
-static char ignored_nicks[MAX_IGNORED][64];
-static int ignored_count = 0;
+static char (*ignored_nicks)[64] = NULL;
+static int *ignored_count = NULL;
+
+void set_shared_ignore_ptrs(char (*nicks)[64], int *count) {
+    ignored_nicks = nicks;
+    ignored_count = count;
+}
 
 int is_ignored_user(const char *nick) {
-    for (int i = 0; i < ignored_count; ++i) {
+    if (!ignored_nicks || !ignored_count) return 0;
+    for (int i = 0; i < *ignored_count; ++i) {
         if (strcasecmp(ignored_nicks[i], nick) == 0) return 1;
     }
     return 0;
 }
 
 void add_ignored_user(const char *nick) {
-    if (!is_ignored_user(nick) && ignored_count < MAX_IGNORED) {
-        strncpy(ignored_nicks[ignored_count], nick, 63);
-        ignored_nicks[ignored_count][63] = 0;
-        ignored_count++;
+    if (!ignored_nicks || !ignored_count) return;
+    if (!is_ignored_user(nick) && *ignored_count < MAX_IGNORED) {
+        strncpy(ignored_nicks[*ignored_count], nick, 63);
+        ignored_nicks[*ignored_count][63] = 0;
+        (*ignored_count)++;
     }
 }
 
 void remove_ignored_user(const char *nick) {
-    for (int i = 0; i < ignored_count; ++i) {
+    if (!ignored_nicks || !ignored_count) return;
+    for (int i = 0; i < *ignored_count; ++i) {
         if (strcasecmp(ignored_nicks[i], nick) == 0) {
-            for (int j = i; j < ignored_count - 1; ++j) {
+            for (int j = i; j < *ignored_count - 1; ++j) {
                 strncpy(ignored_nicks[j], ignored_nicks[j+1], 64);
             }
-            ignored_count--;
+            (*ignored_count)--;
             break;
         }
     }
 }
 
 void clear_ignored_users(void) {
-    ignored_count = 0;
+    if (ignored_count) *ignored_count = 0;
 }
 
 // Helper to send IRC message with locking and delay
@@ -113,6 +122,8 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
     signal(SIGTSTP, handle_termination);  // Ctrl+Z (if available)
 #endif
     char buffer[512];
+    char last_msg[512] = {0};
+    time_t last_msg_time = 0;
     // Send JOIN for assigned channel (child process only)
     printf("[DEBUG] Child process joining channel: '%s'\n", config->channels[channel_index]);
     fflush(stdout);
@@ -132,6 +143,14 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
             int n = read(pipe_fd, buffer, sizeof(buffer)-1);
             if (n > 0) {
                 buffer[n] = 0;
+                // Simple duplicate message/timing check
+                time_t now = time(NULL);
+                if (strcmp(buffer, last_msg) == 0 && (now - last_msg_time) < 1) {
+                    continue;
+                }
+                strncpy(last_msg, buffer, sizeof(last_msg)-1);
+                last_msg[sizeof(last_msg)-1] = 0;
+                last_msg_time = now;
                 // Debug: print what the child receives from the pipe
                 printf("[CHILD %d] Received from pipe: %s\n", channel_index, buffer);
                 fflush(stdout);
@@ -154,6 +173,11 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                         // Extract sender nick
                         char sender[64] = "";
                         extract_nick(line, sender, sizeof(sender));
+                        // Skip messages from self (bot)
+                        if (strcasecmp(sender, config->nickname) == 0) {
+                            line = next;
+                            continue;
+                        }
                         // Normalize both target and config channel to lowercase for comparison
                         char target_lc[256], config_chan_lc[256];
                         snprintf(target_lc, sizeof(target_lc), "%s", target);
@@ -172,7 +196,11 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                             // If stop_talking is set, do not reply
                             if (admin_state->stop_talking) { line = next; continue; }
                             // If sender is ignored, do not reply
-                            if (is_ignored_user(sender)) { line = next; continue; }
+                            if (is_ignored_user(sender)) {
+                                printf("[DEBUG] Ignoring user: %s\n", sender);
+                                line = next;
+                                continue;
+                            }
                             // If topic is set, respond to !topic? with the topic
                             if (strncmp(msg, "!topic?", 7) == 0 && admin_state->current_topic[0]) {
                                 char reply[512];

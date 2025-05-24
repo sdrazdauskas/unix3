@@ -38,6 +38,9 @@ int init_shared_resources() {
     }
     memset(shared_data, 0, sizeof(SharedData));
     admin_state = &shared_data->admin;
+    // Set up ignore list pointers for shared memory
+    extern void set_shared_ignore_ptrs(char (*nicks)[64], int *count);
+    set_shared_ignore_ptrs(shared_data->ignored_nicks, &shared_data->ignored_count);
     return 0;
 }
 
@@ -85,4 +88,16 @@ void cleanup_shared_resources() {
     printf("Cleaning up shared resources\n");
     if (sem_id != -1) semctl(sem_id, 0, IPC_RMID);
     if (shared_data) munmap(shared_data, sizeof(SharedData));
+}
+
+// Helper to get pointer to shared authed admin struct
+void *get_shared_admin_auth_ptr() {
+    if (!shared_data) return NULL;
+    return &shared_data->authed_admins;
+}
+
+// Helper to get pointer to shared authed_count
+int *get_shared_authed_count_ptr() {
+    if (!shared_data) return NULL;
+    return &shared_data->authed_count;
 }
