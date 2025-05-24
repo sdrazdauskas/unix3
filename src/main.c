@@ -158,6 +158,7 @@ int main(int argc, char *argv[]) {
             send(sockfd, pong, strlen(pong), 0);
             sem_unlock();
             usleep(200000);
+            printf("[MAIN] PONG\n");
             continue;
         }
         // Parse PRIVMSG and forward to correct child
@@ -183,7 +184,6 @@ int main(int argc, char *argv[]) {
                         if (!isalnum(sender[i])) { botnick = 0; break; }
                     }
                     if (botnick) {
-                        // Debug: print ignored bot nick
                         printf("[MAIN] Ignoring bot nick: %s\n", sender);
                         fflush(stdout);
                         line = next;
@@ -230,18 +230,32 @@ int main(int argc, char *argv[]) {
                             break;
                         }
                     }
-                    char reply[256];
                     if (found) {
                         printf("[AUTH] %s authenticated as admin.\n", sender);
-                        snprintf(reply, sizeof(reply), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
+                        // Send a private message to the user
+                        char privmsg[256];
+                        snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
+                        printf("[DEBUG] full PRIVMSG to user: %s", privmsg); // Show the full message
+                        sem_lock();
+                        int sent_priv = send(sockfd, privmsg, strlen(privmsg), 0);
+                        sem_unlock();
+                        printf("[DEBUG] send() returned %d (private)\n", sent_priv);
+                        // Also send a debug/auth message to #admin channel
+                        char adminmsg[256];
+                        snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :[DEBUG] Authenticated admin: %s\r\n", sender);
+                        sem_lock();
+                        int sent = send(sockfd, adminmsg, strlen(adminmsg), 0);
+                        sem_unlock();
+                        printf("[DEBUG] send() returned %d (channel)\n", sent);
                     } else {
-                        snprintf(reply, sizeof(reply), "PRIVMSG %s :Authentication failed.\r\n", sender);
+                        // Optionally, you could send an auth failed message to #admin as well
+                        char failmsg[256];
+                        snprintf(failmsg, sizeof(failmsg), "PRIVMSG #admin :[DEBUG] Failed admin auth attempt by: %s\r\n", sender);
+                        sem_lock();
+                        int sent = send(sockfd, failmsg, strlen(failmsg), 0);
+                        sem_unlock();
+                        printf("[DEBUG] send() returned %d (fail to channel)\n", sent);
                     }
-                    printf("[DEBUG] Sending reply: '%s'\n", reply);
-                    sem_lock();
-                    int sent = send(sockfd, reply, strlen(reply), 0);
-                    sem_unlock();
-                    printf("[DEBUG] send() returned %d\n", sent);
                     fflush(stdout);
                     usleep(200000);
                     line = next; continue;
