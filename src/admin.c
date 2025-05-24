@@ -115,17 +115,6 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
             (int)(sizeof(adminmsg) - sizeof(ADMINMSG_PREFIX2) - 3), shared_data->current_topic);
         send_irc_message(sockfd, adminmsg);
         return 1;
-    } else if (strncmp(msg, "!topic", 6) == 0) {
-        char adminmsg[256];
-        #define ADMINMSG_PREFIX "PRIVMSG #admin :Current topic is: "
-        if (shared_data->current_topic[0]) {
-            snprintf(adminmsg, sizeof(adminmsg), ADMINMSG_PREFIX "%.*s\r\n",
-                (int)(sizeof(adminmsg) - sizeof(ADMINMSG_PREFIX) - 3), shared_data->current_topic);
-        } else {
-            snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :No topic is currently set.\r\n");
-        }
-        send_irc_message(sockfd, adminmsg);
-        return 1;
     }
     // If authenticated but not a recognized command, send a prompt
     char warnmsg[256];

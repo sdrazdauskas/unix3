@@ -186,7 +186,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 continue;
                             }
                             // If topic is set, respond to !topic? with the topic
-                            if (strncmp(msg, "!topic?", 7) == 0 && shared_data->current_topic[0]) {
+                            if (strncmp(msg, "!topic", 6) == 0 && shared_data->current_topic[0]) {
                                 char reply[512];
                                 snprintf(reply, sizeof(reply), "PRIVMSG %s :Current topic: %s\r\n", target, shared_data->current_topic);
                                 printf("[CHILD %d] Sending to IRC: %s\n", channel_index, reply);

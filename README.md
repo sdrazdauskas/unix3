@@ -12,16 +12,17 @@ This project implements an IRC chatbot in C, supporting multiple channels, cross
 - Prevents bot loops (ignores bAAAA9999 nicks)
 - Cross-channel/user alerts
 - Forks processes for channel/user sessions
+- **!topic command available in all channels**
 
 ## File Structure
 - `src/` - Source code
-- `catalogue/` - Narrative catalogue (JSON)
+- `catalogue/` - Narrative catalogue (plain text)
 - `config/` - Bot configuration
 - `document.md` - Protocol and architecture description
 - `Makefile` - Build instructions
 
 ## Build & Run
-1. Edit `config/bot.conf` and `catalogue/narratives.json` as needed.
+1. Edit `config/bot.conf` and `catalogue/narratives.txt` as needed.
 2. Build: `make`
 3. Run: `./irc_bot`
 
