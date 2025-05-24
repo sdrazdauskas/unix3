@@ -2,6 +2,7 @@
 #include "admin.h"
 #include "irc_client.h"
 #include "shared_mem.h"
+#include "utils.h"
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
@@ -128,7 +129,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
     }
     // If authenticated but not a recognized command, send a prompt
     char warnmsg[256];
-    snprintf(warnmsg, sizeof(warnmsg), "PRIVMSG #admin :You are authenticated. Enter your admin command.\r\n");
+    snprintf(warnmsg, sizeof(warnmsg), "PRIVMSG #admin :Enter a valid admin command.\r\n");
     send_irc_message(sockfd, warnmsg);
     return 1;
 }
@@ -154,13 +155,18 @@ int try_admin_auth(const char *sender, const char *password, const BotConfig *co
         snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
         printf("[DEBUG] full PRIVMSG to user: %s", privmsg); // Show the full message
         send_irc_message(sockfd, privmsg);
-        // Also send a debug/auth message to #admin channel
+        // Also send a auth message to #admin channel
         char adminmsg[256];
         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Authenticated admin: %s\r\n", sender);
         send_irc_message(sockfd, adminmsg);
     } else {
+        printf("[AUTH] Failed admin auth attempt by: %s\n", sender);
         log_message("[AUTH] Failed admin auth attempt by: %s", sender);
-        // Optionally, you could send an auth failed message to #admin as well
+        // Send a private message to the user
+        char privmsg[256];
+        snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :Authentication failed.\r\n", sender);
+        send_irc_message(sockfd, privmsg);
+        // Also send an auth failed message to #admin
         char failmsg[256];
         snprintf(failmsg, sizeof(failmsg), "PRIVMSG #admin :Failed admin auth attempt by: %s\r\n", sender);
         send_irc_message(sockfd, failmsg);

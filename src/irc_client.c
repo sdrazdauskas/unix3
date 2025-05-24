@@ -2,6 +2,7 @@
 #include "shared_mem.h"
 #include "narrative.h"
 #include "admin.h"
+#include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,22 +20,6 @@
 #include <ws2tcpip.h>
 #else
 #include <arpa/inet.h>
-#endif
-
-#ifndef HAVE_STRCASESTR
-static char *strcasestr(const char *haystack, const char *needle) {
-    if (!*needle) return (char *)haystack;
-    for (; *haystack; ++haystack) {
-        const char *h = haystack;
-        const char *n = needle;
-        while (*h && *n && tolower((unsigned char)*h) == tolower((unsigned char)*n)) {
-            ++h;
-            ++n;
-        }
-        if (!*n) return (char *)haystack;
-    }
-    return NULL;
-}
 #endif
 
 // Declare these as extern, definition should be in main.c

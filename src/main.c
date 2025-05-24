@@ -20,6 +20,7 @@
 #include "narrative.h"
 #include "admin.h"
 #include "shared_mem.h"
+#include "utils.h"
 #include <ctype.h>
 
 volatile sig_atomic_t terminate_flag = 0;
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
     }
     memset((char *)&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    // Remove leading/trailing whitespace from config->server
+    trim_whitespace(config.server);
     char server_addr[256];
     strncpy(server_addr, config.server, sizeof(server_addr)-1);
     server_addr[sizeof(server_addr)-1] = '\0';

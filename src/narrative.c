@@ -1,5 +1,6 @@
 // narrative.c - Stub for narrative catalogue
 #include "narrative.h"
+#include "utils.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -8,19 +9,9 @@
 NarrativeEntry narratives[MAX_NARRATIVES];
 int narrative_count = 0;
 
-// Simple case-insensitive substring search
-static int strcasestr_simple(const char *haystack, const char *needle) {
-    if (!haystack || !needle) return 0;
-    size_t nlen = strlen(needle);
-    for (; *haystack; ++haystack) {
-        if (strncasecmp(haystack, needle, nlen) == 0) return 1;
-    }
-    return 0;
-}
-
 // Loads narratives from a text file: channel|trigger|response per line
 int load_narratives(const char *filename) {
-    // Trim leading/trailing whitespace from filename
+    trim_whitespace((char*)filename);
     char fname[512];
     strncpy(fname, filename, sizeof(fname)-1);
     fname[sizeof(fname)-1] = 0;
@@ -74,7 +65,7 @@ const char* get_narrative_response(const char* channel, const char* msg) {
                 // wildcard, always match
                 return narratives[i].response;
             }
-            if (strcasestr_simple(msg, narratives[i].trigger)) {
+            if (strcasestr(msg, narratives[i].trigger) != NULL) {
                 return narratives[i].response;
             }
         }
