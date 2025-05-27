@@ -3,6 +3,7 @@
 #include "irc_client.h"
 #include "shared_mem.h"
 #include "utils.h"
+#include <signal.h>
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
@@ -133,6 +134,15 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         snprintf(adminmsg, sizeof(adminmsg), "%s%.*s\r\n", adminmsg_prefix,
             (int)(sizeof(adminmsg) - strlen(adminmsg_prefix) - 3), shared_data->current_topic);
         send_irc_message(sockfd, adminmsg);
+        return 1;
+    } else if (strncmp(msg, "!shutdown", 9) == 0) {
+        log_message("[ADMIN] %s issued !shutdown", sender);
+        char adminmsg[256];
+        snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot is shutting down by admin command from %s.\r\n", sender);
+        send_irc_message(sockfd, adminmsg);
+        // Set terminate_flag to 1 (shutdown request)
+        extern volatile sig_atomic_t terminate_flag;
+        terminate_flag = 1;
         return 1;
     }
     // If authenticated but not a recognized command, send a prompt
