@@ -58,6 +58,11 @@ int load_config(const char *path, BotConfig *config) {
             trim_whitespace(p);
             snprintf(config->narratives_path, MAX_STR, "%s", p);
             config->narratives_path[strcspn(config->narratives_path, "\n")] = 0;
+        } else if (strncmp(line, "logfile =", 8) == 0) {
+            char *p = strchr(line, '=') + 1;
+            trim_whitespace(p);
+            snprintf(config->logfile, MAX_STR, "%s", p);
+            config->logfile[strcspn(config->logfile, "\n")] = 0;
         }
     }
     fclose(f);

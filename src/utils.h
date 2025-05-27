@@ -11,4 +11,7 @@ char *strcasestr(const char *haystack, const char *needle);
 // Log message with variable arguments
 void log_message(const char *fmt, ...);
 
+// Set the log file path for logging
+void set_logfile_path(const char *path);
+
 #endif // UTILS_H

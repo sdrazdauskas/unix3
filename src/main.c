@@ -44,6 +44,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to load config\n");
         return 1;
     }
+    // Set log file path from config
+    set_logfile_path(config.logfile);
 
     // Load narratives
     trim_whitespace(config.narratives_path);

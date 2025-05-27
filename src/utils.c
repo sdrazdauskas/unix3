@@ -6,6 +6,8 @@
 #include <stdarg.h>
 #include <time.h>
 
+static char logfile_path[256] = "bot.log";
+
 void trim_whitespace(char *str) {
     if (!str) return;
     // Trim leading
@@ -34,8 +36,15 @@ char *strcasestr(const char *haystack, const char *needle) {
     return NULL;
 }
 
+void set_logfile_path(const char *path) {
+    if (path && *path) {
+        strncpy(logfile_path, path, sizeof(logfile_path)-1);
+        logfile_path[sizeof(logfile_path)-1] = '\0';
+    }
+}
+
 void log_message(const char *fmt, ...) {
-    FILE *f = fopen("bot.log", "a");
+    FILE *f = fopen(logfile_path, "a");
     if (!f) return;
     // Add timestamp
     time_t now = time(NULL);

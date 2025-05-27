@@ -19,6 +19,7 @@ typedef struct {
     char server[MAX_STR];
     int port;
     char narratives_path[MAX_STR];
+    char logfile[MAX_STR];
 } BotConfig;
 
 int load_config(const char *path, BotConfig *config);
