@@ -2,7 +2,6 @@
 #ifndef SHARED_MEM_H
 #define SHARED_MEM_H
 
-#define LOG_BUF_SIZE 4096
 #define MAX_IGNORED 32
 #define MAX_CHANNELS 10
 
@@ -18,8 +17,6 @@ typedef struct {
     int authed_count;
     char ignored_nicks[MAX_IGNORED][64];
     int ignored_count;
-    char log[LOG_BUF_SIZE];
-    int log_offset;
 } SharedData;
 
 extern SharedData *shared_data;
@@ -27,8 +24,5 @@ extern SharedData *shared_data;
 // Helper to get pointer to shared authed admin struct
 void *get_shared_admin_auth_ptr();
 int *get_shared_authed_count_ptr();
-
-void log_message(const char *fmt, ...);
-int read_shared_log(char *out, int out_size);
 
 #endif

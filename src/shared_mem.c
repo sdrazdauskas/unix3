@@ -15,9 +15,6 @@ static int sem_id = -1;
 
 SharedData *shared_data = NULL;
 
-#define LOG_BUF_SIZE 4096
-#define LOG_FILE_PATH "bot.log"
-
 int init_shared_resources() {
     printf("Initializing shared resources\n");
     key_t key = ftok("/tmp", 'B');
@@ -27,7 +24,7 @@ int init_shared_resources() {
     // Initialize to 1 (unlocked)
     semctl(sem_id, 0, SETVAL, 1);
 
-    // Allocate shared memory for SharedData (admin + log)
+    // Allocate shared memory for SharedData (admin only)
     shared_data = mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE,
                       MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (shared_data == MAP_FAILED) {
@@ -50,33 +47,6 @@ int sem_lock() {
 int sem_unlock() {
     struct sembuf op = {0, 1, SEM_UNDO};
     if (semop(sem_id, &op, 1) == -1) { perror("sem_unlock failed"); return -1; }
-    return 0;
-}
-
-void log_message(const char *fmt, ...) {
-    FILE *f = fopen(LOG_FILE_PATH, "a");
-    if (!f) return;
-    // Add timestamp
-    time_t now = time(NULL);
-    struct tm *tm_info = localtime(&now);
-    char timebuf[32];
-    strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tm_info);
-    fprintf(f, "[%s] ", timebuf);
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(f, fmt, args);
-    va_end(args);
-    fputc('\n', f);
-    fclose(f);
-}
-
-// Read the shared log into a buffer
-int read_shared_log(char *out, int out_size) {
-    FILE *f = fopen(LOG_FILE_PATH, "r");
-    if (!f) { out[0] = 0; return -1; }
-    size_t n = fread(out, 1, out_size-1, f);
-    out[n] = 0;
-    fclose(f);
     return 0;
 }
 
