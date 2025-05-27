@@ -169,7 +169,6 @@ int try_admin_auth(const char *sender, const char *password, const BotConfig *co
         // Send a private message to the user
         char privmsg[256];
         snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :Authenticated as admin.\r\n", sender);
-        printf("[DEBUG] full PRIVMSG to user: %s", privmsg); // Show the full message
         send_irc_message(sockfd, privmsg);
         // Also send a auth message to #admin channel
         char adminmsg[256];
