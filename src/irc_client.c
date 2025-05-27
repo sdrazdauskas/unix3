@@ -140,7 +140,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                 printf("[CHILD %d] Received from pipe: %s\n", channel_index, buffer);
                 fflush(stdout);
                 // Process each IRC line in buffer (split on \r\n)
-				char *line = buffer;
+                char *line = buffer;
                 while (line && *line) {
                     char *next = strstr(line, "\r\n");
                     if (next) { *next = 0; next += 2; }

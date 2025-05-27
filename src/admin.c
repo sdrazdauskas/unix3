@@ -21,7 +21,6 @@ void set_shared_admin_auth_ptr(void *ptr) {
 
 int is_authed_admin(const char *nick) {
     if (!shared_auth) return 0;
-    printf("[ADMIN DEBUG] is_authed_admin: checking '%s' against list:\n", nick);
     for (int i = 0; i < shared_auth->authed_count; ++i) {
         printf("  authed_admins[%d]='%s'\n", i, shared_auth->authed_admins[i]);
         if (strcasecmp(shared_auth->authed_admins[i], nick) == 0) return 1;
@@ -57,7 +56,6 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         send_irc_message(sockfd, warnmsg);
         return 1;
     }
-    printf("[ADMIN DEBUG] sender is authed\n");
     if (strncmp(msg, "!stop ", 6) == 0) {
         char *chan = (char*)msg + 6;
         for (int i = 0; i < MAX_CHANNELS; ++i) {
@@ -110,9 +108,9 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         shared_data->current_topic[sizeof(shared_data->current_topic)-1] = 0;
         printf("[ADMIN] Topic changed to: %s\n", shared_data->current_topic);
         char adminmsg[256];
-        #define ADMINMSG_PREFIX2 "PRIVMSG #admin :Topic changed to: "
-        snprintf(adminmsg, sizeof(adminmsg), ADMINMSG_PREFIX2 "%.*s\r\n",
-            (int)(sizeof(adminmsg) - sizeof(ADMINMSG_PREFIX2) - 3), shared_data->current_topic);
+        const char *adminmsg_prefix = "PRIVMSG #admin :Topic changed to: ";
+        snprintf(adminmsg, sizeof(adminmsg), "%s%.*s\r\n", adminmsg_prefix,
+            (int)(sizeof(adminmsg) - strlen(adminmsg_prefix) - 3), shared_data->current_topic);
         send_irc_message(sockfd, adminmsg);
         return 1;
     }
@@ -125,8 +123,6 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
 
 // Returns 1 if authentication succeeded, 0 otherwise
 int try_admin_auth(const char *sender, const char *password, const BotConfig *config, int sockfd) {
-    printf("[DEBUG] AUTH attempt: sender='%s', password='%s'\n", sender, password);
-    log_message("[DEBUG] AUTH attempt: sender='%s'", sender);
     int found = 0;
     for (int i = 0; i < config->admin_count; ++i) {
         if (strcasecmp(config->admins[i].name, sender) == 0 &&
