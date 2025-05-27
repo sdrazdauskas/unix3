@@ -260,6 +260,12 @@ int main(int argc, char *argv[]) {
             kill(child_pids[i], SIGTERM);
         }
     }
+    // Wait for all children to exit
+    for (int i = 0; i < config.channel_count; ++i) {
+        if (child_pids[i] > 0) {
+            waitpid(child_pids[i], NULL, 0);
+        }
+    }
     log_message("[INFO] Bot shutting down.");
     cleanup_shared_resources();
     return 0;
