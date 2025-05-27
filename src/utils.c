@@ -5,8 +5,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+#include <semaphore.h>
 
 static char logfile_path[256] = "bot.log";
+static sem_t log_sem;
+static int log_sem_initialized = 0;
 
 void trim_whitespace(char *str) {
     if (!str) return;
@@ -44,8 +47,16 @@ void set_logfile_path(const char *path) {
 }
 
 void log_message(const char *fmt, ...) {
+    if (!log_sem_initialized) {
+        sem_init(&log_sem, 1, 1);
+        log_sem_initialized = 1;
+    }
+    sem_wait(&log_sem);
     FILE *f = fopen(logfile_path, "a");
-    if (!f) return;
+    if (!f) {
+        sem_post(&log_sem);
+        return;
+    }
     // Add timestamp
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
@@ -58,4 +69,5 @@ void log_message(const char *fmt, ...) {
     va_end(args);
     fputc('\n', f);
     fclose(f);
+    sem_post(&log_sem);
 }
