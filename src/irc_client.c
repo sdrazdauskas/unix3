@@ -229,7 +229,7 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                             }
                             // Alert if message mentions another channel (word boundary check)
                             handle_channel_mentions(config, channel_index, sockfd, msg, sender);
-                            // Alert if message mentions a user (of aaaannnn username format) in the channel (case-insensitive)
+                            // Alert if message mentions a user (of ABCD1234 username format) in the channel (case-insensitive)
                             handle_user_mentions(config, channel_index, sockfd, msg, sender);
 
                             // Normal narrative response

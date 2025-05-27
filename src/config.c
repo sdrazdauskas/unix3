@@ -1,4 +1,3 @@
-// config.c - Configuration parsing implementation
 #include "config.h"
 #include "utils.h"
 #include <stdio.h>

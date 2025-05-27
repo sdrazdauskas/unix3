@@ -7,7 +7,7 @@
 #define MAX_PENDING_MENTIONS 8
 
 struct MentionRequest {
-    char user[9];      // aaaannnn
+    char user[9];      // username in ABCD1234 format
     char sender[64];   // who mentioned
     char channel[128]; // channel name
     time_t request_time;

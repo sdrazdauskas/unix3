@@ -1,4 +1,3 @@
-// main.c - Entry point, process management
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -228,7 +227,6 @@ int main(int argc, char *argv[]) {
         }
         // Parse NAMES reply (353) and forward to correct child
         if (strstr(buffer, " 353 ")) {
-            // Example: :irc.server 353 mynick = #chan :user1 user2 user3\r\n
             char *chan_start = strchr(buffer, '#');
             if (chan_start) {
                 char chan_name[256];

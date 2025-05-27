@@ -5,8 +5,6 @@
 #include "config.h"
 #include "shared_mem.h"
 
-// Placeholder for admin command handling
-
 // Returns 1 if nick is authenticated
 int is_authed_admin(const char *nick);
 // Add nick to authenticated list

@@ -1,4 +1,3 @@
-// utils.c - Utility function implementations
 #include "utils.h"
 #include <string.h>
 #include <ctype.h>

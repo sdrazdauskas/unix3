@@ -1,4 +1,3 @@
-// admin.c - Stub for admin command handling
 #include "admin.h"
 #include "irc_client.h"
 #include "shared_mem.h"
