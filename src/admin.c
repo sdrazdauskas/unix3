@@ -58,28 +58,42 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
     }
     if (strncmp(msg, "!stop ", 6) == 0) {
         char *chan = (char*)msg + 6;
-        for (int i = 0; i < MAX_CHANNELS; ++i) {
+        int found = 0;
+        for (int i = 0; i < config->channel_count; ++i) {
             if (strcasecmp(chan, config->channels[i]) == 0) {
                 shared_data->stop_talking[i] = 1;
                 printf("[ADMIN] Stop talking activated for channel: %s\n", chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will stop talking in %s.\r\n", chan);
                 send_irc_message(sockfd, adminmsg);
+                found = 1;
                 break;
             }
+        }
+        if (!found) {
+            char errmsg[256];
+            snprintf(errmsg, sizeof(errmsg), "PRIVMSG #admin :Error: Bot has not joined channel %s.\r\n", chan);
+            send_irc_message(sockfd, errmsg);
         }
         return 1;
     } else if (strncmp(msg, "!start ", 7) == 0) {
         char *chan = (char*)msg + 7;
-        for (int i = 0; i < MAX_CHANNELS; ++i) {
+        int found = 0;
+        for (int i = 0; i < config->channel_count; ++i) {
             if (strcasecmp(chan, config->channels[i]) == 0) {
                 shared_data->stop_talking[i] = 0;
                 printf("[ADMIN] Stop talking deactivated for channel: %s\n", chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will resume talking in %s.\r\n", chan);
                 send_irc_message(sockfd, adminmsg);
+                found = 1;
                 break;
             }
+        }
+        if (!found) {
+            char errmsg[256];
+            snprintf(errmsg, sizeof(errmsg), "PRIVMSG #admin :Error: Bot has not joined channel %s.\r\n", chan);
+            send_irc_message(sockfd, errmsg);
         }
         return 1;
     } else if (strncmp(msg, "!ignore ", 8) == 0) {
