@@ -22,7 +22,6 @@ void set_shared_admin_auth_ptr(void *ptr) {
 int is_authed_admin(const char *nick) {
     if (!shared_auth) return 0;
     for (int i = 0; i < shared_auth->authed_count; ++i) {
-        printf("  authed_admins[%d]='%s'\n", i, shared_auth->authed_admins[i]);
         if (strcasecmp(shared_auth->authed_admins[i], nick) == 0) return 1;
     }
     return 0;
@@ -63,6 +62,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
             if (strcasecmp(chan, config->channels[i]) == 0) {
                 shared_data->stop_talking[i] = 1;
                 printf("[ADMIN] Stop talking activated for channel: %s\n", chan);
+                log_message("[ADMIN] %s issued !stop for %s", sender, chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will stop talking in %s.\r\n", chan);
                 send_irc_message(sockfd, adminmsg);
@@ -74,6 +74,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
             char errmsg[256];
             snprintf(errmsg, sizeof(errmsg), "PRIVMSG #admin :Error: Bot has not joined channel %s.\r\n", chan);
             send_irc_message(sockfd, errmsg);
+            log_message("[ADMIN] %s tried !stop for unknown channel %s", sender, chan);
         }
         return 1;
     } else if (strncmp(msg, "!start ", 7) == 0) {
@@ -83,6 +84,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
             if (strcasecmp(chan, config->channels[i]) == 0) {
                 shared_data->stop_talking[i] = 0;
                 printf("[ADMIN] Stop talking deactivated for channel: %s\n", chan);
+                log_message("[ADMIN] %s issued !start for %s", sender, chan);
                 char adminmsg[256];
                 snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Bot will resume talking in %s.\r\n", chan);
                 send_irc_message(sockfd, adminmsg);
@@ -94,11 +96,13 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
             char errmsg[256];
             snprintf(errmsg, sizeof(errmsg), "PRIVMSG #admin :Error: Bot has not joined channel %s.\r\n", chan);
             send_irc_message(sockfd, errmsg);
+            log_message("[ADMIN] %s tried !start for unknown channel %s", sender, chan);
         }
         return 1;
     } else if (strncmp(msg, "!ignore ", 8) == 0) {
         add_ignored_user(msg+8);
         printf("[ADMIN] Now ignoring: %s\n", msg+8);
+        log_message("[ADMIN] %s issued !ignore for %s", sender, msg+8);
         char adminmsg[256];
         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Now ignoring user: %s\r\n", msg+8);
         send_irc_message(sockfd, adminmsg);
@@ -106,6 +110,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
     } else if (strncmp(msg, "!removeignore ", 14) == 0) {
         remove_ignored_user(msg+14);
         printf("[ADMIN] Ignore removed for: %s\n", msg+14);
+        log_message("[ADMIN] %s issued !removeignore for %s", sender, msg+14);
         char adminmsg[256];
         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :Ignore removed for user: %s\r\n", msg+14);
         send_irc_message(sockfd, adminmsg);
@@ -113,6 +118,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
     } else if (strncmp(msg, "!clearignore", 12) == 0) {
         clear_ignored_users();
         printf("[ADMIN] All ignores cleared.\n");
+        log_message("[ADMIN] %s issued !clearignore", sender);
         char adminmsg[256];
         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :All ignores cleared.\r\n");
         send_irc_message(sockfd, adminmsg);
@@ -121,6 +127,7 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         strncpy(shared_data->current_topic, msg+10, sizeof(shared_data->current_topic)-1);
         shared_data->current_topic[sizeof(shared_data->current_topic)-1] = 0;
         printf("[ADMIN] Topic changed to: %s\n", shared_data->current_topic);
+        log_message("[ADMIN] %s issued !settopic: %s", sender, shared_data->current_topic);
         char adminmsg[256];
         const char *adminmsg_prefix = "PRIVMSG #admin :Topic changed to: ";
         snprintf(adminmsg, sizeof(adminmsg), "%s%.*s\r\n", adminmsg_prefix,
