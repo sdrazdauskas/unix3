@@ -124,17 +124,6 @@ int handle_admin_command(const char *sender, const char *msg, const BotConfig *c
         snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG #admin :All ignores cleared.\r\n");
         send_irc_message(sockfd, adminmsg);
         return 1;
-    } else if (strncmp(msg, "!settopic ", 10) == 0) {
-        strncpy(shared_data->current_topic, msg+10, sizeof(shared_data->current_topic)-1);
-        shared_data->current_topic[sizeof(shared_data->current_topic)-1] = 0;
-        printf("[ADMIN] Topic changed to: %s\n", shared_data->current_topic);
-        log_message("[ADMIN] %s issued !settopic: %s", sender, shared_data->current_topic);
-        char adminmsg[256];
-        const char *adminmsg_prefix = "PRIVMSG #admin :Topic changed to: ";
-        snprintf(adminmsg, sizeof(adminmsg), "%s%.*s\r\n", adminmsg_prefix,
-            (int)(sizeof(adminmsg) - strlen(adminmsg_prefix) - 3), shared_data->current_topic);
-        send_irc_message(sockfd, adminmsg);
-        return 1;
     } else if (strncmp(msg, "!shutdown", 9) == 0) {
         log_message("[ADMIN] %s issued !shutdown", sender);
         char adminmsg[256];

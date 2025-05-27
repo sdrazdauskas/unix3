@@ -12,7 +12,7 @@ int sem_unlock();
 
 typedef struct {
     int stop_talking[MAX_CHANNELS];
-    char current_topic[256];
+    char current_topic[MAX_CHANNELS][256];
     char authed_admins[10][64];
     int authed_count;
     char ignored_nicks[MAX_IGNORED][64];

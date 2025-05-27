@@ -186,13 +186,45 @@ void irc_channel_loop(const BotConfig *config, int channel_index, int sockfd, in
                                 line = next;
                                 continue;
                             }
-                            // If topic is set, respond to !topic? with the topic
-                            if (strncmp(msg, "!topic", 6) == 0 && shared_data->current_topic[0]) {
+                            // If topic is set for this channel, respond to !topic with the topic
+                            if (strncmp(msg, "!topic", 6) == 0 && shared_data->current_topic[channel_index][0]) {
                                 char reply[512];
-                                snprintf(reply, sizeof(reply), "PRIVMSG %s :Current topic: %s\r\n", target, shared_data->current_topic);
+                                char safe_topic_reply[400];
+                                strncpy(safe_topic_reply, shared_data->current_topic[channel_index], sizeof(safe_topic_reply)-1);
+                                safe_topic_reply[sizeof(safe_topic_reply)-1] = '\0';
+                                snprintf(reply, sizeof(reply), "PRIVMSG %s :Current topic: %s\r\n", target, safe_topic_reply);
                                 printf("[CHILD %d] Sending to IRC: %s\n", channel_index, reply);
                                 fflush(stdout);
                                 send_irc_message(sockfd, reply);
+                                line = next; continue;
+                            }
+                            // Format: !settopic <topic>
+                            if (strncmp(msg, "!settopic ", 10) == 0) {
+                                char *topic = (char*)msg + 10;
+                                if (!*topic) {
+                                    char errmsg[256];
+                                    snprintf(errmsg, sizeof(errmsg), "PRIVMSG %s :Usage: !settopic <topic>\r\n", config->channels[channel_index]);
+                                    send_irc_message(sockfd, errmsg);
+                                    log_message("[ADMIN] %s issued invalid !settopic command in %s", sender, config->channels[channel_index]);
+                                    line = next; continue;
+                                }
+                                strncpy(shared_data->current_topic[channel_index], topic, sizeof(shared_data->current_topic[channel_index])-1);
+                                shared_data->current_topic[channel_index][sizeof(shared_data->current_topic[channel_index])-1] = 0;
+                                printf("[ADMIN] Topic for %s changed to: %s\n", config->channels[channel_index], shared_data->current_topic[channel_index]);
+                                log_message("[ADMIN] %s set topic for %s: %s", sender, config->channels[channel_index], shared_data->current_topic[channel_index]);
+                                char adminmsg[512]; // IRC max message size
+                                // Calculate max topic length so the IRC message always fits
+                                const char *prefix = "PRIVMSG ";
+                                const char *mid = " :Topic changed to: ";
+                                const char *suffix = "\r\n";
+                                size_t chanlen = strlen(config->channels[channel_index]);
+                                size_t max_topic_len = sizeof(adminmsg) - strlen(prefix) - chanlen - strlen(mid) - strlen(suffix) - 1; // -1 for null
+                                if (max_topic_len > sizeof(shared_data->current_topic[channel_index]) - 1)
+                                    max_topic_len = sizeof(shared_data->current_topic[channel_index]) - 1;
+                                char safe_topic[max_topic_len + 1];
+                                snprintf(safe_topic, sizeof(safe_topic), "%s", shared_data->current_topic[channel_index]);
+                                snprintf(adminmsg, sizeof(adminmsg), "PRIVMSG %s :Topic changed to: %s\r\n", config->channels[channel_index], safe_topic);
+                                send_irc_message(sockfd, adminmsg);
                                 line = next; continue;
                             }
                             // Alert if message mentions another channel (word boundary check)
